@@ -12,7 +12,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
         :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --white: #ffffff; }
@@ -67,54 +66,38 @@
         .border-sector { border-left-color: #8b5cf6; background: #f5f3ff; }
         .alert-text { color: #dc2626 !important; }
         
-        .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 480px; }
+        .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 450px; }
 
-        /* --- MÁGICA DE IMPRESSÃO/PDF (Layout Forçado) --- */
-        @media print, .pdf-mode {
+        /* --- MÁGICA DE IMPRESSÃO (Nativa do Navegador) --- */
+        /* Isso garante que se o usuário der Ctrl+P, saia bonito */
+        @media print {
             @page { size: landscape; margin: 5mm; } 
             
             body { 
                 background: white; 
                 color: black; 
-                zoom: 55%; /* Zoom mais agressivo para caber na folha */
+                zoom: 60%; 
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact;
             }
 
-            /* Esconde menus e botões */
             #auth-overlay, header, .tabs, .form-grid, button, .filter-bar { display: none !important; }
-            
             main { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
-            #tab-indicadores { display: block !important; page-break-inside: avoid; }
+            #tab-indicadores { display: block !important; }
 
-            /* Grid Compacta: Força 4 colunas e remove espaços extras */
             .compact-grid {
                 display: grid !important;
                 grid-template-columns: repeat(4, 1fr) !important;
-                gap: 5px !important; /* Gap menor */
-                margin-bottom: 5px !important;
+                gap: 10px !important;
             }
 
-            /* Ajuste de tamanho do gráfico para não empurrar para pag 2 */
-            .chart-box {
-                height: 280px !important; /* Altura reduzida drasticamente */
-                box-shadow: none;
-                border: 1px solid #ccc;
-                margin-top: 5px !important;
-            }
+            .chart-box, .mini-card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+            .chart-box { height: 300px !important; }
+            .dash-section-title { margin-top: 10px; font-size: 14px; page-break-after: avoid; }
 
-            /* Reduz Títulos e Cartões */
-            .dash-section-title { margin-top: 5px; margin-bottom: 2px; font-size: 12px; }
-            .mini-card { padding: 5px !important; }
-            .mini-card h4 { font-size: 10px; }
-            .mini-card .val { font-size: 14px; margin-top: 0; }
-            .mini-card .sub-val { font-size: 9px; }
-
-            /* Cabeçalho do Relatório */
             main::before {
                 content: "Relatório de Absenteísmo - MODULAR";
-                display: block;
-                font-size: 18px; font-weight: bold; margin-bottom: 10px;
+                display: block; font-size: 18px; font-weight: bold; margin-bottom: 10px;
                 text-align: center; text-decoration: underline; color: #000;
             }
         }
@@ -165,8 +148,6 @@
                     <div class="input-group"><label>Início</label><input type="date" id="dash-start"></div>
                     <div class="input-group"><label>Fim</label><input type="date" id="dash-end"></div>
                     <button class="action-btn" style="margin: 0; padding: 0.4rem 1rem;" onclick="app.updateDashboard()">Filtrar</button>
-                    <button class="action-btn" style="margin: 0; padding: 0.4rem 1rem; background: #4b5563; margin-left: auto;" onclick="app.printReport()">🖨️ Imprimir</button>
-                    <button class="action-btn" style="margin: 0; padding: 0.4rem 1rem; background: #dc2626;" onclick="app.exportPDF()">📄 Gerar PDF</button>
                 </div>
 
                 <div class="dash-section-title" style="margin-top: 0;">Visão Geral (Plantas)</div>
@@ -194,7 +175,6 @@
 
     <script type="module" src="app.js"></script>
     <script>
-        // Lógica PWA e Relógio
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js').then(reg => {
