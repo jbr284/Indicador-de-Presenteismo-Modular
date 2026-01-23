@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Presenteísmo - Modular</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --white: #ffffff; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -19,8 +21,8 @@
         .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
         
         /* Conteúdo Principal */
-        main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
-        .view-section { display: none; } /* Esconde abas inativas */
+        main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; overflow-y: auto; }
+        .view-section { display: none; }
         .view-section.active { display: block; }
         
         /* Formulários e Tabelas */
@@ -36,22 +38,21 @@
         .status-bad { color: #dc2626; font-weight: bold; }
 
         /* Estilos Especiais da Tabela */
-        .total-row {
-            background-color: #e5e7eb; 
-            font-weight: bold;
-            border-top: 2px solid #9ca3af;
-        }
+        .total-row { background-color: #e5e7eb; font-weight: bold; border-top: 2px solid #9ca3af; }
         .total-row td { color: #111827; }
+        .turn-header { background-color: #f3f4f6; color: #4b5563; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* Novo estilo para separar os turnos visualmente */
-        .turn-header {
-            background-color: #f3f4f6;
-            color: #4b5563;
-            font-size: 0.85rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+        /* --- ESTILOS DO DASHBOARD (NOVO) --- */
+        .filter-bar { display: flex; gap: 1rem; align-items: end; background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .kpi-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .kpi-card h3 { margin: 0; color: #6b7280; font-size: 0.9rem; text-transform: uppercase; }
+        .kpi-value { font-size: 2.5rem; font-weight: bold; color: #2563eb; margin: 0.5rem 0 0 0; }
+        .kpi-value.alert { color: #dc2626; }
+        
+        .charts-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; }
+        @media (min-width: 768px) { .charts-grid { grid-template-columns: 2fr 1fr; } }
+        .chart-box { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
@@ -148,8 +149,45 @@
             </section>
 
             <section id="tab-indicadores" class="view-section">
-                <h2>Dashboard Gerencial</h2>
-                <p>Gráficos serão implementados na próxima etapa...</p>
+                
+                <div class="filter-bar">
+                    <div class="input-group">
+                        <label>Data Inicial</label>
+                        <input type="date" id="dash-start">
+                    </div>
+                    <div class="input-group">
+                        <label>Data Final</label>
+                        <input type="date" id="dash-end">
+                    </div>
+                    <button class="action-btn" style="margin:0; height: 42px;" onclick="app.updateDashboard()">Filtrar Dados</button>
+                </div>
+
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <h3>Planta 3 (Período)</h3>
+                        <p class="kpi-value" id="kpi-p3">-%</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Planta 4 (Período)</h3>
+                        <p class="kpi-value" id="kpi-p4">-%</p>
+                    </div>
+                    <div class="kpi-card" style="border-top: 4px solid #4b5563;">
+                        <h3>Grupo (Média Global)</h3>
+                        <p class="kpi-value" id="kpi-global">-%</p>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-box">
+                        <h3>Evolução Diária (P3 vs P4)</h3>
+                        <canvas id="chart-evolution"></canvas>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Ofensores por Setor (Acumulado)</h3>
+                        <canvas id="chart-sectors"></canvas>
+                    </div>
+                </div>
+
             </section>
         </main>
     </div>
