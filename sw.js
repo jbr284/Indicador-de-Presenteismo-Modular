@@ -1,19 +1,18 @@
-const CACHE_NAME = 'modular-absenteismo-v2'; // Mude v2 para v3, v4... para forçar limpeza total se necessário
+const CACHE_NAME = 'modular-absenteismo-v3'; // Subi versão para forçar atualização
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './app.js',
   './manifest.json',
-  // Adicione seus ícones aqui se já existirem:
-  // './icon-192.png',
+  // './icon-192.png', // Descomente se já tiver as imagens
   // './icon-512.png',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0'
 ];
 
-// 1. Instalação: Cache inicial
+// 1. Instalação
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Força o SW a ativar imediatamente, sem esperar fechar a aba
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Cacheando App Shell');
@@ -22,7 +21,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// 2. Ativação: Limpeza de caches antigos
+// 2. Ativação
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keyList) => {
@@ -36,27 +35,30 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim(); // Garante controle imediato sobre todas as abas
+  self.clients.claim();
 });
 
-// 3. Fetch: Estratégia NETWORK FIRST (Rede Primeiro)
-// Tenta pegar o mais recente da rede. Se der erro (offline), pega do cache.
+// 3. Fetch (CORRIGIDO)
 self.addEventListener('fetch', (event) => {
-  // Ignora requisições não-HTTP (ex: chrome-extension)
+  // CORREÇÃO: Ignora requisições que não sejam GET (como os POST do Firebase)
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Ignora requisições não-HTTP
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        // Se a rede respondeu, atualizamos o cache com essa versão nova
+        // Se a rede respondeu, atualiza o cache
         return caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, networkResponse.clone());
           return networkResponse;
         });
       })
       .catch(() => {
-        // Se a rede falhar (offline), entregamos o cache
-        console.log('[SW] Offline: Servindo do cache', event.request.url);
+        // Se der erro (offline), tenta pegar do cache
         return caches.match(event.request);
       })
   );
