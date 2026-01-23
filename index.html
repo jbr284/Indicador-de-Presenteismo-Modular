@@ -65,29 +65,50 @@
         .alert-text { color: #dc2626 !important; }
         .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 480px; }
 
-        /* --- CSS EXCLUSIVO PARA IMPRESSÃO (Clean Print) --- */
+        /* --- CSS CORRIGIDO PARA IMPRESSÃO --- */
         @media print {
-            /* Esconde tudo o que não interessa no papel */
+            /* Força orientação Paisagem */
+            @page { size: landscape; margin: 10mm; }
+            
+            /* Esconde elementos de navegação */
             #auth-overlay, header, .tabs, .form-grid, button, .filter-bar { display: none !important; }
             
-            /* Garante que o fundo fique branco e texto preto */
-            body, main { background: white; color: black; padding: 0; margin: 0; height: auto; overflow: visible; }
+            /* Reduz a escala para caber na folha */
+            body { 
+                background: white; 
+                color: black; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+                zoom: 75%; /* Truque para reduzir o tamanho geral */
+            }
             
-            /* Mostra apenas a seção de indicadores */
+            main { 
+                padding: 0; 
+                margin: 0; 
+                width: 100%; 
+                max-width: none; 
+                overflow: visible; 
+            }
+            
             #tab-indicadores { display: block !important; }
             
-            /* Ajustes para economizar tinta e caber na folha */
-            .chart-box, .mini-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
-            .compact-grid { gap: 0.5rem; }
+            .chart-box, .mini-card { 
+                box-shadow: none; 
+                border: 1px solid #ccc; 
+                page-break-inside: avoid; /* Evita quebrar gráfico no meio */
+            }
             
-            /* Adiciona um cabeçalho simples só para impressão */
+            /* Força gráficos a não estourarem a largura */
+            canvas { max-width: 100% !important; height: auto !important; }
+            
             main::before {
                 content: "Relatório de Absenteísmo - MODULAR";
                 display: block;
-                font-size: 18pt;
+                font-size: 16pt;
                 font-weight: bold;
-                margin-bottom: 20px;
+                margin-bottom: 15px;
                 text-align: center;
+                text-decoration: underline;
             }
         }
     </style>
