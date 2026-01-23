@@ -42,7 +42,7 @@
         .total-row td { color: #111827; }
         .turn-header { background-color: #f3f4f6; color: #4b5563; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* --- ESTILOS DO DASHBOARD (NOVO) --- */
+        /* --- ESTILOS DO DASHBOARD --- */
         .filter-bar { display: flex; gap: 1rem; align-items: end; background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
         .kpi-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
@@ -62,7 +62,7 @@
             <h2>Acesso Restrito</h2>
             <div class="input-group">
                 <label>Email</label>
-                <input type="email" id="login-email" placeholder="admin@empresa.com">
+                <input type="email" id="login-email" placeholder="admin@modular.com">
             </div>
             <div class="input-group">
                 <label>Senha</label>
@@ -76,7 +76,7 @@
     <div id="app-container" style="display: none;">
         <header>
             <div>
-                <h1 style="margin: 0; font-size: 1.25rem;">Controle de Absenteísmo</h1>
+                <h1 style="margin: 0; font-size: 1.25rem;">Controle de Absenteísmo - MODULAR</h1>
                 <small id="current-datetime">--/--/---- --:--</small>
             </div>
             <button onclick="app.logout()" style="background:none; border:none; cursor:pointer; color: red;">Sair</button>
@@ -172,7 +172,7 @@
                         <p class="kpi-value" id="kpi-p4">-%</p>
                     </div>
                     <div class="kpi-card" style="border-top: 4px solid #4b5563;">
-                        <h3>Grupo (Média Global)</h3>
+                        <h3>MODULAR (Média Global)</h3>
                         <p class="kpi-value" id="kpi-global">-%</p>
                     </div>
                 </div>
