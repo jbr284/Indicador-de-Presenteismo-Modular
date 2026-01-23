@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Presenteísmo - Modular</title>
     
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     
@@ -12,7 +16,6 @@
         :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --white: #ffffff; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
         
-        /* Componentes Básicos */
         #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; justify-content: center; align-items: center; }
         .auth-box { background: var(--white); padding: 2rem; border-radius: 8px; width: 300px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         
@@ -28,7 +31,6 @@
         .view-section { display: none; }
         .view-section.active { display: block; }
         
-        /* Formulários e Tabelas */
         .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; background: var(--white); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; }
         .input-group { display: flex; flex-direction: column; }
         label { font-size: 0.85rem; font-weight: 600; color: #4b5563; }
@@ -43,7 +45,6 @@
         .total-row { background-color: #e5e7eb; font-weight: bold; border-top: 2px solid #9ca3af; }
         .turn-header { background-color: #f3f4f6; color: #4b5563; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* --- DASHBOARD COMPACTO --- */
         .filter-bar { display: flex; gap: 0.5rem; align-items: end; background: #fff; padding: 0.8rem; border-radius: 6px; margin-bottom: 1rem; }
         .filter-bar .input-group { margin-bottom: 0; }
 
@@ -67,7 +68,6 @@
         
         .alert-text { color: #dc2626 !important; }
 
-        /* Ajuste na altura para caber o novo rodapé */
         .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 480px; }
     </style>
 </head>
@@ -210,5 +210,38 @@
     </div>
 
     <script type="module" src="app.js"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('SW Registrado:', reg.scope);
+                        
+                        // Detecta nova versão e força atualização
+                        reg.onupdatefound = () => {
+                            const newWorker = reg.installing;
+                            newWorker.onstatechange = () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // Nova versão detectada, recarrega para aplicar
+                                    if(confirm("Nova versão disponível! Atualizar agora?")) {
+                                        window.location.reload();
+                                    }
+                                }
+                            };
+                        };
+                    })
+                    .catch(err => console.log('Falha SW:', err));
+            });
+            
+            // Recarrega se o SW assumir o controle (ex: skipWaiting foi chamado)
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                window.location.reload();
+                refreshing = true;
+            });
+        }
+    </script>
 </body>
 </html>
