@@ -71,12 +71,12 @@
 
         /* --- MÁGICA DE IMPRESSÃO/PDF (Layout Forçado) --- */
         @media print, .pdf-mode {
-            @page { size: landscape; margin: 5mm; } /* Força Paisagem */
+            @page { size: landscape; margin: 5mm; } 
             
             body { 
                 background: white; 
                 color: black; 
-                zoom: 60%; /* Reduz tudo para caber na folha */
+                zoom: 55%; /* Zoom mais agressivo para caber na folha */
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact;
             }
@@ -85,28 +85,37 @@
             #auth-overlay, header, .tabs, .form-grid, button, .filter-bar { display: none !important; }
             
             main { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: none !important; }
-            #tab-indicadores { display: block !important; }
+            #tab-indicadores { display: block !important; page-break-inside: avoid; }
 
-            /* Força GRID Fixa de 4 colunas */
+            /* Grid Compacta: Força 4 colunas e remove espaços extras */
             .compact-grid {
                 display: grid !important;
                 grid-template-columns: repeat(4, 1fr) !important;
-                gap: 10px !important;
+                gap: 5px !important; /* Gap menor */
+                margin-bottom: 5px !important;
             }
 
-            /* Remove sombras e ajusta gráfico */
-            .chart-box, .mini-card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
-            .chart-box { height: 350px !important; }
-            
-            /* Títulos */
-            .dash-section-title { margin-top: 10px; font-size: 14px; page-break-after: avoid; }
+            /* Ajuste de tamanho do gráfico para não empurrar para pag 2 */
+            .chart-box {
+                height: 280px !important; /* Altura reduzida drasticamente */
+                box-shadow: none;
+                border: 1px solid #ccc;
+                margin-top: 5px !important;
+            }
+
+            /* Reduz Títulos e Cartões */
+            .dash-section-title { margin-top: 5px; margin-bottom: 2px; font-size: 12px; }
+            .mini-card { padding: 5px !important; }
+            .mini-card h4 { font-size: 10px; }
+            .mini-card .val { font-size: 14px; margin-top: 0; }
+            .mini-card .sub-val { font-size: 9px; }
 
             /* Cabeçalho do Relatório */
             main::before {
                 content: "Relatório de Absenteísmo - MODULAR";
                 display: block;
-                font-size: 24px; font-weight: bold; margin-bottom: 20px;
-                text-align: center; text-decoration: underline;
+                font-size: 18px; font-weight: bold; margin-bottom: 10px;
+                text-align: center; text-decoration: underline; color: #000;
             }
         }
     </style>
