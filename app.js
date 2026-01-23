@@ -23,6 +23,9 @@ const estruturaSetores = {
 
 let chartEvolution = null;
 
+// Registra plugin do Datalabels para usar no gráfico
+Chart.register(ChartDataLabels);
+
 window.app = {
     login: async () => {
         try {
@@ -86,44 +89,41 @@ window.app = {
     }
 };
 
-// --- NOVA LÓGICA DE DADOS MATRICIAL ---
 function processChartData(snapshot) {
-    // 1. Estruturas de Acumulação
     let global = { ef: 0, fa: 0 };
     let plants = { "PLANTA 3": { ef:0, fa:0 }, "PLANTA 4": { ef:0, fa:0 } };
-    let turns = { "1º TURNO": { ef:0, fa:0 }, "2º TURNO": { ef:0, fa:0 } };
     
     // Matriz: Setor -> Turno
-    let sectorStats = {}; // ex: "Fabricação": { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} }
+    let sectorStats = {}; 
     
-    // Timeline para Gráfico: Data -> Setor -> %
-    let timeline = {}; 
+    // Consolidado por Setor (Soma T1 + T2)
+    let sectorTotals = {}; // ex: "Fabricação": { ef: 0, fa: 0 }
 
-    // Dias únicos para cálculo de média
+    let timeline = {}; 
     let uniqueDays = new Set();
 
     snapshot.forEach(doc => {
         const d = doc.data();
         uniqueDays.add(d.data_registro);
 
-        // A. Acumula Global
         global.ef += d.efetivo;
         global.fa += d.faltas;
 
-        // B. Acumula Planta
         if(plants[d.planta]) { plants[d.planta].ef += d.efetivo; plants[d.planta].fa += d.faltas; }
 
-        // C. Acumula Turno
-        if(turns[d.turno]) { turns[d.turno].ef += d.efetivo; turns[d.turno].fa += d.faltas; }
-
-        // D. Acumula Setor/Turno
+        // Detalhamento por turno
         if(!sectorStats[d.setor]) sectorStats[d.setor] = { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} };
         if(sectorStats[d.setor][d.turno]) {
             sectorStats[d.setor][d.turno].ef += d.efetivo;
             sectorStats[d.setor][d.turno].fa += d.faltas;
         }
 
-        // E. Timeline (Gráfico)
+        // Consolidado Geral do Setor (Ignora turno para somar)
+        if(!sectorTotals[d.setor]) sectorTotals[d.setor] = { ef: 0, fa: 0 };
+        sectorTotals[d.setor].ef += d.efetivo;
+        sectorTotals[d.setor].fa += d.faltas;
+
+        // Timeline
         if(!timeline[d.data_registro]) timeline[d.data_registro] = {};
         if(!timeline[d.data_registro][d.setor]) timeline[d.data_registro][d.setor] = { ef:0, fa:0 };
         timeline[d.data_registro][d.setor].ef += d.efetivo;
@@ -134,7 +134,7 @@ function processChartData(snapshot) {
     const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
     const mean = (f) => (f / daysCount).toFixed(1);
 
-    // 2. Renderizar KPIs Macro (Topo)
+    // 1. Renderizar KPIs Macro
     document.getElementById('kpi-p3').innerText = calc(plants["PLANTA 3"].fa, plants["PLANTA 3"].ef) + "%";
     document.getElementById('mean-p3').innerText = "Média: " + mean(plants["PLANTA 3"].fa);
     
@@ -147,17 +147,13 @@ function processChartData(snapshot) {
     globEl.className = `val ${parseFloat(globPct) > 5 ? 'alert-text' : ''}`;
     document.getElementById('mean-global').innerText = "Média: " + mean(global.fa);
 
-    // 3. Renderizar KPIs Totais Turno (Fundo)
-    document.getElementById('total-t1').innerText = calc(turns["1º TURNO"].fa, turns["1º TURNO"].ef) + "%";
-    document.getElementById('mean-t1').innerText = "Média: " + mean(turns["1º TURNO"].fa);
-
-    document.getElementById('total-t2').innerText = calc(turns["2º TURNO"].fa, turns["2º TURNO"].ef) + "%";
-    document.getElementById('mean-t2').innerText = "Média: " + mean(turns["2º TURNO"].fa);
-
-    // 4. Renderizar Grids de Setores
+    // 2. Renderizar Detalhamento por Turno
     renderDetailedCards(sectorStats, daysCount);
 
-    // 5. Renderizar Gráfico
+    // 3. Renderizar Consolidado por Setor (NOVO)
+    renderConsolidatedCards(sectorTotals, daysCount);
+
+    // 4. Renderizar Gráfico
     renderEvolutionChart(timeline);
 }
 
@@ -173,7 +169,6 @@ function renderDetailedCards(sectorStats, daysCount) {
         const t1 = sectorStats[sector]["1º TURNO"];
         const t2 = sectorStats[sector]["2º TURNO"];
         
-        // Card Turno 1
         const pct1 = t1.ef > 0 ? ((t1.fa/t1.ef)*100).toFixed(2) : "0.00";
         const alert1 = parseFloat(pct1) > 5 ? 'alert-text' : '';
         gridT1.innerHTML += `
@@ -183,7 +178,6 @@ function renderDetailedCards(sectorStats, daysCount) {
                 <span class="sub-val">Média: ${(t1.fa/daysCount).toFixed(1)}</span>
             </div>`;
 
-        // Card Turno 2
         const pct2 = t2.ef > 0 ? ((t2.fa/t2.ef)*100).toFixed(2) : "0.00";
         const alert2 = parseFloat(pct2) > 5 ? 'alert-text' : '';
         gridT2.innerHTML += `
@@ -195,33 +189,53 @@ function renderDetailedCards(sectorStats, daysCount) {
     });
 }
 
+// NOVA FUNÇÃO: Renderiza o total acumulado do setor (T1+T2)
+function renderConsolidatedCards(sectorTotals, daysCount) {
+    const grid = document.getElementById('grid-consolidado');
+    grid.innerHTML = '';
+
+    const sectors = Object.keys(sectorTotals).sort();
+
+    sectors.forEach(sector => {
+        const t = sectorTotals[sector];
+        const pct = t.ef > 0 ? ((t.fa/t.ef)*100).toFixed(2) : "0.00";
+        const alert = parseFloat(pct) > 5 ? 'alert-text' : '';
+
+        grid.innerHTML += `
+            <div class="mini-card border-sector">
+                <h4>Total ${sector}</h4>
+                <div class="val ${alert}">${pct}%</div>
+                <span class="sub-val">Média Dia: ${(t.fa/daysCount).toFixed(1)}</span>
+            </div>`;
+    });
+}
+
 function renderEvolutionChart(timeline) {
     const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
 
     const dates = Object.keys(timeline).sort();
-    // Identificar todos os setores únicos presentes nestas datas para criar as linhas
     const allSectors = new Set();
     dates.forEach(d => Object.keys(timeline[d]).forEach(s => allSectors.add(s)));
     
     const datasets = Array.from(allSectors).map(sector => {
-        // Cor aleatória determinística (baseada no nome) para manter consistência
         const hash = sector.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
         const color = `hsl(${hash % 360}, 70%, 50%)`;
 
         return {
             label: sector,
+            backgroundColor: color, // Para gráfico de barras
             borderColor: color,
-            tension: 0.3,
+            borderWidth: 1,
             data: dates.map(d => {
                 const item = timeline[d][sector];
-                return item && item.ef > 0 ? ((item.fa/item.ef)*100).toFixed(2) : 0;
+                return item && item.ef > 0 ? parseFloat(((item.fa/item.ef)*100).toFixed(2)) : 0;
             })
         };
     });
 
     chartEvolution = new Chart(ctx, {
-        type: 'line',
+        type: 'bar', // Mudança para BARRAS
         data: {
             labels: dates.map(d => d.split('-').reverse().join('/')),
             datasets: datasets
@@ -229,8 +243,21 @@ function renderEvolutionChart(timeline) {
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } },
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+            scales: { 
+                y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } 
+            },
+            plugins: { 
+                legend: { position: 'bottom' },
+                // Configuração dos Rótulos de Dados
+                datalabels: {
+                    color: '#000',
+                    anchor: 'end',
+                    align: 'top',
+                    offset: -4,
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (value) => value > 0 ? value + '%' : '' // Só mostra se > 0
+                }
+            }
         }
     });
 }
@@ -241,7 +268,6 @@ onAuthStateChanged(auth, u => {
     document.getElementById('app-container').style.display = u ? 'block' : 'none';
     if(u) {
         startRealtimeTable();
-        // Datas Padrão (Mês Atual)
         const d = new Date(), y = d.getFullYear(), m = d.getMonth();
         document.getElementById('dash-start').value = new Date(y, m, 1).toISOString().split('T')[0];
         document.getElementById('dash-end').value = new Date(y, m+1, 0).toISOString().split('T')[0];
