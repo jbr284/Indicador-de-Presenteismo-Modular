@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Presenteísmo - Modular</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --white: #ffffff; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        
+        /* Login Overlay */
+        #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+        .auth-box { background: var(--white); padding: 2rem; border-radius: 8px; width: 300px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        
+        /* Header & Nav */
+        header { background: var(--white); padding: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .tabs { display: flex; gap: 1rem; margin-top: 1rem; }
+        .tab-btn { padding: 0.5rem 1rem; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 600; color: #6b7280; }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        
+        /* Conteúdo Principal */
+        main { flex: 1; padding: 2rem; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .view-section { display: none; } /* Esconde abas inativas */
+        .view-section.active { display: block; }
+        
+        /* Formulários e Tabelas */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; background: var(--white); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; }
+        .input-group { display: flex; flex-direction: column; }
+        input, select { padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; margin-top: 0.25rem; }
+        button.action-btn { background: var(--primary); color: var(--white); padding: 0.75rem 1.5rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 1rem; }
+        button.danger-btn { background: #dc2626; margin-left: 0.5rem; }
+        
+        table { width: 100%; border-collapse: collapse; background: var(--white); margin-top: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { background: #f9fafb; font-weight: 600; }
+        .status-bad { color: #dc2626; font-weight: bold; } /* Destaque para absenteísmo alto */
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h2>Acesso Restrito</h2>
+            <div class="input-group">
+                <label>Email</label>
+                <input type="email" id="login-email" placeholder="admin@empresa.com">
+            </div>
+            <div class="input-group">
+                <label>Senha</label>
+                <input type="password" id="login-pass">
+            </div>
+            <button class="action-btn" onclick="app.login()" style="width: 100%">Entrar</button>
+            <p id="auth-error" style="color: red; font-size: 0.8rem; margin-top: 0.5rem;"></p>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        <header>
+            <div>
+                <h1 style="margin: 0; font-size: 1.25rem;">Controle de Absenteísmo</h1>
+                <small id="current-datetime">--/--/---- --:--</small> </div>
+            <button onclick="app.logout()" style="background:none; border:none; cursor:pointer; color: red;">Sair</button>
+        </header>
+
+        <div class="tabs" style="padding: 0 2rem; background: white;">
+            <button class="tab-btn active" onclick="app.switchTab('tab-lancamento')">Lançamento</button>
+            <button class="tab-btn" onclick="app.switchTab('tab-indicadores')">Indicadores</button>
+        </div>
+
+        <main>
+            <section id="tab-lancamento" class="view-section active">
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label>Planta</label>
+                        <select id="inp-planta" onchange="app.updateSectors()">
+                            <option value="">Selecione...</option>
+                            <option value="PLANTA 3">PLANTA 3</option>
+                            <option value="PLANTA 4">PLANTA 4</option>
+                        </select>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Turno</label>
+                        <select id="inp-turno">
+                            <option value="1º TURNO">1º TURNO</option>
+                            <option value="2º TURNO">2º TURNO</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Setor</label>
+                        <select id="inp-setor">
+                            <option value="">Selecione a planta primeiro</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Data</label>
+                        <input type="date" id="inp-data">
+                    </div>
+                    <div class="input-group">
+                        <label>Efetivo Total</label>
+                        <input type="number" id="inp-efetivo" min="1">
+                    </div>
+                    <div class="input-group">
+                        <label>Qtd Faltas</label>
+                        <input type="number" id="inp-faltas" min="0">
+                    </div>
+                </div>
+                
+                <button class="action-btn" onclick="app.saveData()">Salvar Registro</button>
+                <div id="save-status" style="margin-top: 10px;"></div>
+
+                <h3>Histórico - Planta 3</h3>
+                <div style="overflow-x: auto;">
+                    <table id="table-p3">
+                        <thead><tr><th>Data</th><th>Setor/Turno</th><th>Efetivo</th><th>Faltas</th><th>Absenteísmo %</th><th>Ações</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <h3>Histórico - Planta 4</h3>
+                <div style="overflow-x: auto;">
+                    <table id="table-p4">
+                        <thead><tr><th>Data</th><th>Setor/Turno</th><th>Efetivo</th><th>Faltas</th><th>Absenteísmo %</th><th>Ações</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="tab-indicadores" class="view-section">
+                <h2>Dashboard Gerencial</h2>
+                <p>Gráficos serão implementados na próxima etapa...</p>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
