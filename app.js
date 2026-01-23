@@ -3,8 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// --- CONFIGURAÇÃO ---
-// ! IMPORTANTE: Substitua pelos seus dados do Firebase Console !
+// --- CONFIGURAÇÃO (ATUALIZADO COM SEUS DADOS) ---
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -19,13 +18,13 @@ const appFire = initializeApp(firebaseConfig);
 const db = getFirestore(appFire);
 const auth = getAuth(appFire);
 
-// --- DADOS DO NEGÓCIO ---
+// --- DADOS DO NEGÓCIO (ATUALIZADO) ---
 const estruturaSetores = {
-    "PLANTA 3": ["Estrutura", "Fabricação"],
+    "PLANTA 3": ["Montagem Estrutural", "Fabricação"], // Correção Solicitada
     "PLANTA 4": ["Montagem final", "Painéis"]
 };
 
-// Variáveis Globais para os Gráficos (para poder destruir e recriar)
+// Variáveis Globais para os Gráficos
 let chartEvolution = null;
 let chartSectors = null;
 
@@ -116,12 +115,12 @@ window.app = {
         }
     },
 
-    // 5. DASHBOARD & INDICADORES (Lógica Nova)
+    // 5. DASHBOARD & INDICADORES
     updateDashboard: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
 
-        if (!start || !end) return; // Espera usuário selecionar datas
+        if (!start || !end) return;
 
         // Consulta filtrada por data
         const q = query(
@@ -141,8 +140,8 @@ function processChartData(snapshot) {
     // Estruturas para agregação
     let totalP3 = { efetivo: 0, faltas: 0 };
     let totalP4 = { efetivo: 0, faltas: 0 };
-    let timeline = {}; // "2023-10-01": { p3_abs: X, p4_abs: Y }
-    let sectors = {}; // "Fabricação": { efetivo: X, faltas: Y }
+    let timeline = {}; 
+    let sectors = {}; 
 
     snapshot.forEach(doc => {
         const d = doc.data();
@@ -187,7 +186,6 @@ function processChartData(snapshot) {
     document.getElementById('kpi-p4').innerText = `${kpiP4}%`;
     document.getElementById('kpi-global').innerText = `${kpiGlobal}%`;
     
-    // Cor condicional
     document.getElementById('kpi-global').className = `kpi-value ${kpiGlobal > 5 ? 'alert' : ''}`;
 
     // B. Preparar Dados para Chart.js
@@ -213,7 +211,6 @@ function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
     const ctxEvo = document.getElementById('chart-evolution');
     const ctxSec = document.getElementById('chart-sectors');
 
-    // Destrói gráficos anteriores se existirem
     if (chartEvolution) chartEvolution.destroy();
     if (chartSectors) chartSectors.destroy();
 
@@ -221,7 +218,7 @@ function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
     chartEvolution = new Chart(ctxEvo, {
         type: 'line',
         data: {
-            labels: dates.map(d => d.split('-').reverse().join('/')), // Formata data
+            labels: dates.map(d => d.split('-').reverse().join('/')),
             datasets: [
                 { label: 'Planta 3', data: p3Vals, borderColor: '#2563eb', tension: 0.3 },
                 { label: 'Planta 4', data: p4Vals, borderColor: '#10b981', tension: 0.3 }
@@ -255,7 +252,7 @@ onAuthStateChanged(auth, (user) => {
     if (user) {
         overlay.style.display = 'none';
         appContainer.style.display = 'block';
-        startDataListener(); // Inicia a tabela em tempo real
+        startDataListener(); 
         
         // Define datas iniciais padrão para o Dashboard (Mês Atual)
         const now = new Date();
@@ -275,7 +272,7 @@ setInterval(() => {
     document.getElementById('current-datetime').innerText = now.toLocaleString('pt-BR');
 }, 1000);
 
-// Lógica da Tabela (Mantida igual ao anterior)
+// Lógica da Tabela (Separada por Turnos e com Total)
 function startDataListener() {
     const q = query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc"));
     
@@ -342,4 +339,3 @@ function startDataListener() {
         tbodyP4.innerHTML = finalHtmlP4;
     });
 }
-
