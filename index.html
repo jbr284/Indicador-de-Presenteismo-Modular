@@ -7,6 +7,8 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2563eb">
+    
+    <link rel="icon" type="image/png" href="icon-192.png">
     <link rel="apple-touch-icon" href="icon-192.png">
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -218,12 +220,10 @@
                     .then(reg => {
                         console.log('SW Registrado:', reg.scope);
                         
-                        // Detecta nova versão e força atualização
                         reg.onupdatefound = () => {
                             const newWorker = reg.installing;
                             newWorker.onstatechange = () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // Nova versão detectada, recarrega para aplicar
                                     if(confirm("Nova versão disponível! Atualizar agora?")) {
                                         window.location.reload();
                                     }
@@ -234,7 +234,6 @@
                     .catch(err => console.log('Falha SW:', err));
             });
             
-            // Recarrega se o SW assumir o controle (ex: skipWaiting foi chamado)
             let refreshing;
             navigator.serviceWorker.addEventListener('controllerchange', () => {
                 if (refreshing) return;
