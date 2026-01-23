@@ -92,7 +92,7 @@
                 <div class="form-grid">
                     <div class="input-group">
                         <label>Planta</label>
-                        <select id="inp-planta" onchange="app.updateSectors()">
+                        <select id="inp-planta" onchange="app.updateSectors(); app.loadHeadcount()">
                             <option value="">Selecione...</option>
                             <option value="PLANTA 3">PLANTA 3</option>
                             <option value="PLANTA 4">PLANTA 4</option>
@@ -101,7 +101,7 @@
                     
                     <div class="input-group">
                         <label>Turno</label>
-                        <select id="inp-turno">
+                        <select id="inp-turno" onchange="app.loadHeadcount()">
                             <option value="1º TURNO">1º TURNO</option>
                             <option value="2º TURNO">2º TURNO</option>
                         </select>
@@ -109,7 +109,7 @@
 
                     <div class="input-group">
                         <label>Setor</label>
-                        <select id="inp-setor">
+                        <select id="inp-setor" onchange="app.loadHeadcount()">
                             <option value="">Selecione a planta primeiro</option>
                         </select>
                     </div>
@@ -118,10 +118,12 @@
                         <label>Data</label>
                         <input type="date" id="inp-data">
                     </div>
+                    
                     <div class="input-group">
-                        <label>Efetivo Total</label>
-                        <input type="number" id="inp-efetivo" min="1">
+                        <label>Efetivo Total (Carregado Automaticamente)</label>
+                        <input type="number" id="inp-efetivo" min="1" placeholder="Aguardando seleção...">
                     </div>
+                    
                     <div class="input-group">
                         <label>Qtd Faltas</label>
                         <input type="number" id="inp-faltas" min="0">
