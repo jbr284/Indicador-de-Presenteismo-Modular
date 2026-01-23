@@ -72,17 +72,15 @@ window.app = {
         }
     },
 
-    // --- NOVO RECURSO: CARREGAR EFETIVO AUTOMÁTICO ---
+    // 3. Carregar Efetivo Automático
     loadHeadcount: async () => {
         const planta = document.getElementById('inp-planta').value;
         const turno = document.getElementById('inp-turno').value;
         const setor = document.getElementById('inp-setor').value;
         const efetivoInput = document.getElementById('inp-efetivo');
 
-        // Só busca se os 3 campos estiverem preenchidos
         if (!planta || !turno || !setor) return;
 
-        // Cria um ID único para essa combinação (ex: "PLANTA 3_1º TURNO_Fabricação")
         const configId = `${planta}_${turno}_${setor}`;
 
         try {
@@ -93,7 +91,6 @@ window.app = {
             if (docSnap.exists()) {
                 efetivoInput.value = docSnap.data().efetivo_atual;
             } else {
-                // Se nunca foi salvo, deixa vazio ou zero
                 efetivoInput.value = "";
                 efetivoInput.placeholder = "Digite o efetivo inicial...";
             }
@@ -102,7 +99,7 @@ window.app = {
         }
     },
 
-    // 3. CRUD (Salvar)
+    // 4. CRUD (Salvar)
     saveData: async () => {
         const planta = document.getElementById('inp-planta').value;
         const turno = document.getElementById('inp-turno').value;
@@ -120,7 +117,6 @@ window.app = {
         const configId = `${planta}_${turno}_${setor}`;
 
         try {
-            // Passo 1: Salva o Histórico (Log)
             await addDoc(collection(db, "registros_absenteismo"), {
                 planta,
                 turno,
@@ -133,7 +129,6 @@ window.app = {
                 usuario_id: auth.currentUser.uid
             });
 
-            // Passo 2: Atualiza a Configuração do Efetivo (Atualiza o padrão) [NOVO]
             await setDoc(doc(db, "config_efetivo", configId), {
                 efetivo_atual: efetivo,
                 ultima_atualizacao: Timestamp.now()
@@ -146,14 +141,14 @@ window.app = {
         }
     },
 
-    // 4. CRUD (Excluir)
+    // 5. CRUD (Excluir)
     deleteItem: async (id) => {
         if(confirm("Tem certeza que deseja excluir este registro?")) {
             await deleteDoc(doc(db, "registros_absenteismo", id));
         }
     },
 
-    // 5. DASHBOARD & INDICADORES
+    // 6. DASHBOARD & INDICADORES
     updateDashboard: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
@@ -182,6 +177,7 @@ function processChartData(snapshot) {
     snapshot.forEach(doc => {
         const d = doc.data();
         
+        // Acumula Totais
         if (d.planta === "PLANTA 3") {
             totalP3.efetivo += d.efetivo;
             totalP3.faltas += d.faltas;
@@ -190,6 +186,7 @@ function processChartData(snapshot) {
             totalP4.faltas += d.faltas;
         }
 
+        // Timeline (Agrupa por dia)
         if (!timeline[d.data_registro]) {
             timeline[d.data_registro] = { p3_ef: 0, p3_fa: 0, p4_ef: 0, p4_fa: 0 };
         }
@@ -201,11 +198,13 @@ function processChartData(snapshot) {
             timeline[d.data_registro].p4_fa += d.faltas;
         }
 
+        // Setores
         if (!sectors[d.setor]) sectors[d.setor] = { efetivo: 0, faltas: 0 };
         sectors[d.setor].efetivo += d.efetivo;
         sectors[d.setor].faltas += d.faltas;
     });
 
+    // --- CÁLCULO 1: TAXA DE ABSENTEÍSMO (%) ---
     const calcAbs = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
     
     const kpiP3 = calcAbs(totalP3.faltas, totalP3.efetivo);
@@ -215,9 +214,22 @@ function processChartData(snapshot) {
     document.getElementById('kpi-p3').innerText = `${kpiP3}%`;
     document.getElementById('kpi-p4').innerText = `${kpiP4}%`;
     document.getElementById('kpi-global').innerText = `${kpiGlobal}%`;
-    
     document.getElementById('kpi-global').className = `kpi-value ${kpiGlobal > 5 ? 'alert' : ''}`;
 
+    // --- CÁLCULO 2: MÉDIA ARITMÉTICA (QTD/DIA) ---
+    // Conta quantos dias únicos existem no período filtrado
+    const daysCount = Object.keys(timeline).length || 1; // Evita divisão por zero
+
+    const meanP3 = (totalP3.faltas / daysCount).toFixed(1);
+    const meanP4 = (totalP4.faltas / daysCount).toFixed(1);
+    const meanGlobal = ((totalP3.faltas + totalP4.faltas) / daysCount).toFixed(1);
+
+    document.getElementById('mean-p3').innerText = `${meanP3}/dia`;
+    document.getElementById('mean-p4').innerText = `${meanP4}/dia`;
+    document.getElementById('mean-global').innerText = `${meanGlobal}/dia`;
+
+
+    // --- GRÁFICOS ---
     const labels = Object.keys(timeline).sort();
     const dataP3 = labels.map(date => {
         const t = timeline[date];
@@ -248,8 +260,8 @@ function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
         data: {
             labels: dates.map(d => d.split('-').reverse().join('/')),
             datasets: [
-                { label: 'Planta 3', data: p3Vals, borderColor: '#2563eb', tension: 0.3 },
-                { label: 'Planta 4', data: p4Vals, borderColor: '#10b981', tension: 0.3 }
+                { label: 'Planta 3 (%)', data: p3Vals, borderColor: '#2563eb', tension: 0.3 },
+                { label: 'Planta 4 (%)', data: p4Vals, borderColor: '#10b981', tension: 0.3 }
             ]
         },
         options: { responsive: true, scales: { y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } } }
