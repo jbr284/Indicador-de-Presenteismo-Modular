@@ -44,13 +44,20 @@
 
         /* --- ESTILOS DO DASHBOARD --- */
         .filter-bar { display: flex; gap: 1rem; align-items: end; background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        
+        /* Títulos das seções de KPI */
+        .kpi-section-title { font-size: 0.9rem; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; margin-top: 1.5rem; }
+        .kpi-section-title:first-of-type { margin-top: 0; }
+
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 1rem; }
         .kpi-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
         .kpi-card h3 { margin: 0; color: #6b7280; font-size: 0.9rem; text-transform: uppercase; }
         .kpi-value { font-size: 2.5rem; font-weight: bold; color: #2563eb; margin: 0.5rem 0 0 0; }
         .kpi-value.alert { color: #dc2626; }
+        /* Estilo diferente para a média aritmética (para diferenciar visualmente) */
+        .kpi-value.mean { color: #059669; } 
         
-        .charts-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .charts-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; margin-top: 2rem; }
         @media (min-width: 768px) { .charts-grid { grid-template-columns: 2fr 1fr; } }
         .chart-box { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     </style>
@@ -164,18 +171,35 @@
                     <button class="action-btn" style="margin:0; height: 42px;" onclick="app.updateDashboard()">Filtrar Dados</button>
                 </div>
 
+                <div class="kpi-section-title">Taxa de Absenteísmo (%)</div>
                 <div class="kpi-container">
                     <div class="kpi-card">
-                        <h3>Planta 3 (Período)</h3>
+                        <h3>Planta 3</h3>
                         <p class="kpi-value" id="kpi-p3">-%</p>
                     </div>
                     <div class="kpi-card">
-                        <h3>Planta 4 (Período)</h3>
+                        <h3>Planta 4</h3>
                         <p class="kpi-value" id="kpi-p4">-%</p>
                     </div>
                     <div class="kpi-card" style="border-top: 4px solid #4b5563;">
-                        <h3>MODULAR (Média Global)</h3>
+                        <h3>Global</h3>
                         <p class="kpi-value" id="kpi-global">-%</p>
+                    </div>
+                </div>
+
+                <div class="kpi-section-title">Média Aritmética de Faltas (Qtd/Dia)</div>
+                <div class="kpi-container">
+                    <div class="kpi-card">
+                        <h3>Média P3</h3>
+                        <p class="kpi-value mean" id="mean-p3">-</p>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>Média P4</h3>
+                        <p class="kpi-value mean" id="mean-p4">-</p>
+                    </div>
+                    <div class="kpi-card" style="border-top: 4px solid #059669;">
+                        <h3>Média Global</h3>
+                        <p class="kpi-value mean" id="mean-global">-</p>
                     </div>
                 </div>
 
@@ -197,4 +221,3 @@
     <script type="module" src="app.js"></script>
 </body>
 </html>
-
