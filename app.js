@@ -4,7 +4,7 @@ import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 // --- CONFIGURAÇÃO ---
-// ! IMPORTANTE: Substitua pelos seus dados do Firebase Console novamente !
+// ! IMPORTANTE: Substitua pelos seus dados do Firebase Console !
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -19,16 +19,16 @@ const appFire = initializeApp(firebaseConfig);
 const db = getFirestore(appFire);
 const auth = getAuth(appFire);
 
-// --- ESTADO E DADOS DO NEGÓCIO ---
+// --- DADOS DO NEGÓCIO ---
 const estruturaSetores = {
     "PLANTA 3": ["Estrutura", "Fabricação"],
     "PLANTA 4": ["Montagem final", "Painéis"]
 };
 
-// Interface Global para o HTML acessar
+// Interface Global
 window.app = {
     
-    // --- 1. Lógica de Autenticação ---
+    // 1. Autenticação
     login: async () => {
         const email = document.getElementById('login-email').value;
         const pass = document.getElementById('login-pass').value;
@@ -41,7 +41,7 @@ window.app = {
 
     logout: () => signOut(auth),
 
-    // --- 2. Lógica de UI (Abas e Formulários) ---
+    // 2. UI
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
@@ -65,7 +65,7 @@ window.app = {
         }
     },
 
-    // --- 3. CRUD: Create (Salvar) ---
+    // 3. CRUD (Salvar)
     saveData: async () => {
         const planta = document.getElementById('inp-planta').value;
         const turno = document.getElementById('inp-turno').value;
@@ -93,7 +93,6 @@ window.app = {
                 absenteismo_percentual: parseFloat(absenteismo.toFixed(2)),
                 usuario_id: auth.currentUser.uid
             });
-            
             alert("Registro salvo com sucesso!");
         } catch (e) {
             console.error("Erro ao salvar", e);
@@ -101,7 +100,7 @@ window.app = {
         }
     },
 
-    // --- 4. CRUD: Delete ---
+    // 4. CRUD (Excluir)
     deleteItem: async (id) => {
         if(confirm("Tem certeza que deseja excluir este registro?")) {
             await deleteDoc(doc(db, "registros_absenteismo", id));
@@ -111,7 +110,6 @@ window.app = {
 
 // --- LISTENERS (Tempo Real) ---
 
-// 1. Monitorar Login
 onAuthStateChanged(auth, (user) => {
     const overlay = document.getElementById('auth-overlay');
     const appContainer = document.getElementById('app-container');
@@ -126,24 +124,25 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// 2. Atualizar Data/Hora
 setInterval(() => {
     const now = new Date();
     document.getElementById('current-datetime').innerText = now.toLocaleString('pt-BR');
 }, 1000);
 
-// 3. Monitorar Banco de Dados (Real-time com Totalizador)
+// Lógica Principal de Exibição (Separada por Turnos)
 function startDataListener() {
+    // Ordena por data (os mais recentes primeiro dentro de cada grupo)
     const q = query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc"));
     
     onSnapshot(q, (snapshot) => {
         const tbodyP3 = document.querySelector('#table-p3 tbody');
         const tbodyP4 = document.querySelector('#table-p4 tbody');
-        
-        let htmlP3 = '';
-        let htmlP4 = '';
 
-        // Acumuladores para o Total
+        // Buffers para armazenar HTML separado por turno
+        let p3_t1 = '', p3_t2 = '';
+        let p4_t1 = '', p4_t2 = '';
+
+        // Acumuladores Globais da Planta (para o rodapé)
         let accP3 = { efetivo: 0, faltas: 0 };
         let accP4 = { efetivo: 0, faltas: 0 };
 
@@ -152,8 +151,7 @@ function startDataListener() {
             const row = `
                 <tr>
                     <td>${data.data_registro.split('-').reverse().join('/')}</td>
-                    <td>${data.setor} (${data.turno})</td>
-                    <td>${data.efetivo}</td>
+                    <td>${data.setor}</td> <td>${data.efetivo}</td>
                     <td>${data.faltas}</td>
                     <td class="${data.absenteismo_percentual > 5 ? 'status-bad' : ''}">
                         ${data.absenteismo_percentual.toFixed(2)}%
@@ -164,36 +162,53 @@ function startDataListener() {
                 </tr>
             `;
 
+            // Lógica de Separação (Planta -> Turno)
             if (data.planta === "PLANTA 3") {
-                htmlP3 += row;
                 accP3.efetivo += data.efetivo;
                 accP3.faltas += data.faltas;
+                
+                if (data.turno === "1º TURNO") p3_t1 += row;
+                else p3_t2 += row;
+
             } else if (data.planta === "PLANTA 4") {
-                htmlP4 += row;
                 accP4.efetivo += data.efetivo;
                 accP4.faltas += data.faltas;
+
+                if (data.turno === "1º TURNO") p4_t1 += row;
+                else p4_t2 += row;
             }
         });
 
-        // Função interna para gerar a linha de Total
-        const generateTotalRow = (acc) => {
-            if (acc.efetivo === 0) return '';
-            const totalAbs = (acc.faltas / acc.efetivo) * 100;
-            return `
-                <tr class="total-row">
-                    <td colspan="2" style="text-align: right;">MÉDIA GERAL DO PERÍODO:</td>
-                    <td>${acc.efetivo}</td>
-                    <td>${acc.faltas}</td>
-                    <td class="${totalAbs > 5 ? 'status-bad' : ''}">
-                        ${totalAbs.toFixed(2)}%
-                    </td>
-                    <td>-</td>
-                </tr>
-            `;
-        };
+        // Montagem Final da Tabela P3
+        let finalHtmlP3 = '';
+        if (p3_t1) finalHtmlP3 += `<tr class="turn-header"><td colspan="6">1º TURNO</td></tr>` + p3_t1;
+        if (p3_t2) finalHtmlP3 += `<tr class="turn-header"><td colspan="6">2º TURNO</td></tr>` + p3_t2;
+        finalHtmlP3 += generateTotalRow(accP3); // Total sempre ao final
 
-        tbodyP3.innerHTML = htmlP3 + generateTotalRow(accP3);
-        tbodyP4.innerHTML = htmlP4 + generateTotalRow(accP4);
+        // Montagem Final da Tabela P4
+        let finalHtmlP4 = '';
+        if (p4_t1) finalHtmlP4 += `<tr class="turn-header"><td colspan="6">1º TURNO</td></tr>` + p4_t1;
+        if (p4_t2) finalHtmlP4 += `<tr class="turn-header"><td colspan="6">2º TURNO</td></tr>` + p4_t2;
+        finalHtmlP4 += generateTotalRow(accP4); // Total sempre ao final
+
+        tbodyP3.innerHTML = finalHtmlP3;
+        tbodyP4.innerHTML = finalHtmlP4;
     });
 }
 
+// Função auxiliar para gerar a linha de Total
+function generateTotalRow(acc) {
+    if (acc.efetivo === 0) return '';
+    const totalAbs = (acc.faltas / acc.efetivo) * 100;
+    return `
+        <tr class="total-row">
+            <td colspan="2" style="text-align: right;">MÉDIA GERAL DO PERÍODO:</td>
+            <td>${acc.efetivo}</td>
+            <td>${acc.faltas}</td>
+            <td class="${totalAbs > 5 ? 'status-bad' : ''}">
+                ${totalAbs.toFixed(2)}%
+            </td>
+            <td>-</td>
+        </tr>
+    `;
+}
