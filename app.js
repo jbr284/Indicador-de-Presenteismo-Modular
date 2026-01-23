@@ -6,12 +6,12 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from
 // --- CONFIGURAÇÃO ---
 // ! IMPORTANTE: Substitua pelos seus dados do Firebase Console !
 const firebaseConfig = {
-    apiKey: "SUA_API_KEY_AQUI",
-    authDomain: "SEU_PROJETO.firebaseapp.com",
-    projectId: "SEU_PROJETO",
-    storageBucket: "SEU_PROJETO.appspot.com",
-    messagingSenderId: "...",
-    appId: "..."
+  apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
+  authDomain: "indicador-de-presenca-modular.firebaseapp.com",
+  projectId: "indicador-de-presenca-modular",
+  storageBucket: "indicador-de-presenca-modular.firebasestorage.app",
+  messagingSenderId: "895253390208",
+  appId: "1:895253390208:web:943f8679a0dbf36a531765"
 };
 
 // Inicialização
@@ -342,3 +342,4 @@ function startDataListener() {
         tbodyP4.innerHTML = finalHtmlP4;
     });
 }
+
