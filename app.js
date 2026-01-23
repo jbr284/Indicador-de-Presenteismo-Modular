@@ -83,9 +83,8 @@ window.app = {
         processChartData(await getDocs(q), start, end);
     },
 
-    // --- FUNÇÕES DE EXPORTAÇÃO (CORRIGIDAS) ---
+    // --- FUNÇÕES DE EXPORTAÇÃO ---
     printReport: () => {
-        // O CSS @media print já lida com o zoom de 60% e paisagem
         window.print();
     },
 
@@ -93,7 +92,7 @@ window.app = {
         const element = document.getElementById('tab-indicadores');
         const controls = document.getElementById('report-controls');
         
-        // Ativa o "Modo PDF" (Zoom 60% e Grid Fixa)
+        // Ativa o "Modo PDF" que reduz o tamanho dos elementos
         controls.style.display = 'none';
         document.body.classList.add('pdf-mode');
 
@@ -105,11 +104,16 @@ window.app = {
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
         };
 
-        html2pdf().set(opt).from(element).save().then(() => {
-            // Desativa o modo PDF e mostra os botões de volta
-            controls.style.display = 'flex';
-            document.body.classList.remove('pdf-mode');
-        });
+        // Pequeno delay para o CSS aplicar antes de gerar
+        setTimeout(() => {
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Desativa o modo PDF
+                controls.style.display = 'flex';
+                document.body.classList.remove('pdf-mode');
+                // Força redesenho do gráfico para tamanho original
+                chartEvolution.resize();
+            });
+        }, 100);
     }
 };
 
