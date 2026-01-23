@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+// CONFIGURAÇÃO
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -82,26 +83,32 @@ window.app = {
         processChartData(await getDocs(q), start, end);
     },
 
+    // --- FUNÇÕES DE EXPORTAÇÃO (CORRIGIDAS) ---
     printReport: () => {
+        // O CSS @media print já lida com o zoom de 60% e paisagem
         window.print();
     },
 
     exportPDF: () => {
         const element = document.getElementById('tab-indicadores');
         const controls = document.getElementById('report-controls');
+        
+        // Ativa o "Modo PDF" (Zoom 60% e Grid Fixa)
         controls.style.display = 'none';
+        document.body.classList.add('pdf-mode');
 
         const opt = {
-            margin:       10,
+            margin:       5,
             filename:     `relatorio_absenteismo_${new Date().toISOString().split('T')[0]}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 },
-            // MUDANÇA AQUI: orientation: 'landscape' para deitar a folha
+            html2canvas:  { scale: 2, useCORS: true },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
         };
 
         html2pdf().set(opt).from(element).save().then(() => {
+            // Desativa o modo PDF e mostra os botões de volta
             controls.style.display = 'flex';
+            document.body.classList.remove('pdf-mode');
         });
     }
 };
@@ -171,7 +178,6 @@ function renderEvolutionChart(sectorTotals, startDate, endDate) {
     const sectors = Object.keys(sectorTotals).sort();
     const values = sectors.map(s => { const t = sectorTotals[s]; return t.ef > 0 ? parseFloat(((t.fa/t.ef)*100).toFixed(2)) : 0; });
     const bgColors = sectors.map(s => `hsl(${s.split('').reduce((a,b)=>a+b.charCodeAt(0),0) % 360}, 70%, 50%)`);
-    
     const fmt = (dt) => dt ? dt.split('-').reverse().join('/') : '...';
     
     chartEvolution = new Chart(ctx, {
