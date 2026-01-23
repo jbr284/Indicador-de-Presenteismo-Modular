@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// CONFIGURAÇÃO
+// CONFIGURAÇÃO FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -24,19 +24,38 @@ const estruturaSetores = {
 let chartEvolution = null;
 Chart.register(ChartDataLabels);
 
+// AUXILIAR: Toast Notification
+const Toast = Swal.mixin({
+    toast: true, position: 'top-end', showConfirmButton: false, timer: 3000, timerProgressBar: true,
+    didOpen: (toast) => { toast.onmouseenter = Swal.stopTimer; toast.onmouseleave = Swal.resumeTimer; }
+});
+
 window.app = {
     login: async () => {
         try {
             await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-pass').value);
-        } catch (e) { document.getElementById('auth-error').innerText = e.message; }
+            Toast.fire({ icon: 'success', title: 'Login realizado com sucesso' });
+        } catch (e) { 
+            Swal.fire({ icon: 'error', title: 'Falha no Login', text: 'Verifique suas credenciais.' });
+        }
     },
-    logout: () => signOut(auth),
+    logout: () => {
+        Swal.fire({
+            title: 'Sair do Sistema?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sim, sair'
+        }).then((result) => {
+            if (result.isConfirmed) signOut(auth);
+        });
+    },
 
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        // Atualiza botões da sidebar
+        document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
+        // Lógica simples para ativar o botão certo baseado na ordem (0 = Lançamento, 1 = Indicadores)
+        const btnIndex = tabId === 'tab-lancamento' ? 0 : 1;
+        document.querySelectorAll('nav button')[btnIndex].classList.add('active');
+        
         document.getElementById(tabId).classList.add('active');
-        event.target.classList.add('active');
         if (tabId === 'tab-indicadores') app.updateDashboard();
     },
 
@@ -62,7 +81,11 @@ window.app = {
     saveData: async () => {
         const p = document.getElementById('inp-planta').value, t = document.getElementById('inp-turno').value, s = document.getElementById('inp-setor').value;
         const d = document.getElementById('inp-data').value, ef = Number(document.getElementById('inp-efetivo').value), fa = Number(document.getElementById('inp-faltas').value);
-        if (!p || !s || !d || ef <= 0) return alert("Preencha tudo.");
+        
+        if (!p || !s || !d || ef <= 0) {
+            return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos corretamente.' });
+        }
+
         try {
             await addDoc(collection(db, "registros_absenteismo"), {
                 planta: p, turno: t, setor: s, data_registro: d, timestamp: Timestamp.now(),
@@ -70,11 +93,26 @@ window.app = {
                 usuario_id: auth.currentUser.uid
             });
             await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
-            alert("Salvo!");
-        } catch (e) { alert("Erro ao salvar."); }
+            
+            Toast.fire({ icon: 'success', title: 'Registro salvo!' });
+            
+            // Limpa faltas após salvar para facilitar proximo
+            document.getElementById('inp-faltas').value = '';
+        } catch (e) { 
+            Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível salvar os dados.' });
+        }
     },
 
-    deleteItem: async (id) => { if(confirm("Excluir?")) await deleteDoc(doc(db, "registros_absenteismo", id)); },
+    deleteItem: async (id) => { 
+        Swal.fire({
+            title: 'Tem certeza?', text: "Você não poderá reverter isso!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'Sim, excluir'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                await deleteDoc(doc(db, "registros_absenteismo", id));
+                Toast.fire({ icon: 'success', title: 'Registro excluído.' });
+            }
+        });
+    },
 
     updateDashboard: async () => {
         const start = document.getElementById('dash-start').value, end = document.getElementById('dash-end').value;
@@ -107,14 +145,15 @@ function processChartData(snapshot, startDate, endDate) {
     const mean = (f) => (f / daysCount).toFixed(1);
 
     document.getElementById('kpi-p3').innerText = calc(plants["PLANTA 3"].fa, plants["PLANTA 3"].ef) + "%";
-    document.getElementById('mean-p3').innerText = "Média: " + mean(plants["PLANTA 3"].fa);
+    document.getElementById('mean-p3').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 3"].fa);
     document.getElementById('kpi-p4').innerText = calc(plants["PLANTA 4"].fa, plants["PLANTA 4"].ef) + "%";
-    document.getElementById('mean-p4').innerText = "Média: " + mean(plants["PLANTA 4"].fa);
+    document.getElementById('mean-p4').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 4"].fa);
+    
     const globPct = calc(global.fa, global.ef);
     const globEl = document.getElementById('kpi-global');
     globEl.innerText = globPct + "%";
     globEl.className = `val ${parseFloat(globPct) > 5 ? 'alert-text' : ''}`;
-    document.getElementById('mean-global').innerText = "Média: " + mean(global.fa);
+    document.getElementById('mean-global').innerHTML = `<i class="ph-bold ph-globe"></i> Média: ` + mean(global.fa);
 
     renderDetailedCards(sectorStats, daysCount);
     renderConsolidatedCards(sectorTotals, daysCount);
@@ -128,8 +167,19 @@ function renderDetailedCards(sectorStats, daysCount) {
         const t1 = sectorStats[sector]["1º TURNO"], t2 = sectorStats[sector]["2º TURNO"];
         const pct1 = t1.ef > 0 ? ((t1.fa/t1.ef)*100).toFixed(2) : "0.00";
         const pct2 = t2.ef > 0 ? ((t2.fa/t2.ef)*100).toFixed(2) : "0.00";
-        gridT1.innerHTML += `<div class="mini-card border-t1"><h4>${sector}</h4><div class="val ${parseFloat(pct1)>5?'alert-text':''}">${pct1}%</div><span class="sub-val">Média: ${(t1.fa/daysCount).toFixed(1)}</span></div>`;
-        gridT2.innerHTML += `<div class="mini-card border-t2"><h4>${sector}</h4><div class="val ${parseFloat(pct2)>5?'alert-text':''}">${pct2}%</div><span class="sub-val">Média: ${(t2.fa/daysCount).toFixed(1)}</span></div>`;
+        
+        gridT1.innerHTML += `
+            <div class="mini-card border-t1">
+                <h4>${sector}</h4>
+                <div class="val ${parseFloat(pct1)>5?'alert-text':''}">${pct1}%</div>
+                <span class="sub-val"><i class="ph-bold ph-chart-bar"></i> Média: ${(t1.fa/daysCount).toFixed(1)}</span>
+            </div>`;
+        gridT2.innerHTML += `
+            <div class="mini-card border-t2">
+                <h4>${sector}</h4>
+                <div class="val ${parseFloat(pct2)>5?'alert-text':''}">${pct2}%</div>
+                <span class="sub-val"><i class="ph-bold ph-chart-bar"></i> Média: ${(t2.fa/daysCount).toFixed(1)}</span>
+            </div>`;
     });
 }
 
@@ -139,7 +189,12 @@ function renderConsolidatedCards(sectorTotals, daysCount) {
     Object.keys(sectorTotals).sort().forEach(sector => {
         const t = sectorTotals[sector];
         const pct = t.ef > 0 ? ((t.fa/t.ef)*100).toFixed(2) : "0.00";
-        grid.innerHTML += `<div class="mini-card border-sector"><h4>Total ${sector}</h4><div class="val ${parseFloat(pct)>5?'alert-text':''}">${pct}%</div><span class="sub-val">Média Dia: ${(t.fa/daysCount).toFixed(1)}</span></div>`;
+        grid.innerHTML += `
+            <div class="mini-card border-sector">
+                <h4>Total ${sector}</h4>
+                <div class="val ${parseFloat(pct)>5?'alert-text':''}">${pct}%</div>
+                <span class="sub-val"><i class="ph-bold ph-sigma"></i> Média Dia: ${(t.fa/daysCount).toFixed(1)}</span>
+            </div>`;
     });
 }
 
@@ -153,15 +208,15 @@ function renderEvolutionChart(sectorTotals, startDate, endDate) {
     
     chartEvolution = new Chart(ctx, {
         type: 'bar',
-        data: { labels: sectors, datasets: [{ label: 'Absenteísmo Acumulado', data: values, backgroundColor: bgColors, barPercentage: 0.6 }] },
+        data: { labels: sectors, datasets: [{ label: 'Absenteísmo Acumulado', data: values, backgroundColor: bgColors, barPercentage: 0.6, borderRadius: 6 }] },
         options: { 
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true, title: {display:true, text:'% Absenteísmo'} }, x: { title:{display:true, text:'Setores'} } },
+            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } },
             plugins: { 
                 legend: { display: false },
-                title: { display: true, text: 'Absenteísmo Acumulado por Setor', font: {size:16} },
+                title: { display: true, text: 'Absenteísmo Acumulado por Setor', font: {size:16, family: "'Inter', sans-serif", weight: 600}, color: '#334155' },
                 subtitle: { display: true, text: `Período: ${fmt(startDate)} até ${fmt(endDate)}`, position: 'bottom', padding:{top:10} },
-                datalabels: { color:'#000', anchor:'end', align:'top', offset:-4, font:{weight:'bold', size:11}, formatter: (v,c) => v>0 ? `${c.chart.data.labels[c.dataIndex]}\n${v}%` : '', textAlign: 'center' }
+                datalabels: { color:'#334155', anchor:'end', align:'top', offset:-4, font:{weight:'bold', size:11}, formatter: (v,c) => v>0 ? `${v}%` : '' }
             }
         }
     });
@@ -169,17 +224,17 @@ function renderEvolutionChart(sectorTotals, startDate, endDate) {
 
 onAuthStateChanged(auth, u => {
     document.getElementById('auth-overlay').style.display = u ? 'none' : 'flex';
-    document.getElementById('app-container').style.display = u ? 'block' : 'none';
+    document.getElementById('app-container').style.display = u ? 'flex' : 'none'; // Mudança para FLEX
     if(u) {
         onSnapshot(query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc")), snap => {
             const p3 = document.querySelector('#table-p3 tbody'), p4 = document.querySelector('#table-p4 tbody');
             let h3_1='', h3_2='', h4_1='', h4_2='', t3={e:0,f:0}, t4={e:0,f:0};
             snap.forEach(doc => {
                 const d = doc.data(), id = doc.id;
-                const row = `<tr><td>${d.data_registro.split('-').reverse().join('/')}</td><td>${d.setor}</td><td>${d.efetivo}</td><td>${d.faltas}</td><td class="${d.absenteismo_percentual>5?'status-bad':''}">${d.absenteismo_percentual.toFixed(2)}%</td><td><button class="danger-btn" onclick="app.deleteItem('${id}')">X</button></td></tr>`;
+                const row = `<tr><td>${d.data_registro.split('-').reverse().join('/')}</td><td>${d.setor} <small style="color:#64748b">(${d.turno})</small></td><td>${d.efetivo}</td><td>${d.faltas}</td><td class="${d.absenteismo_percentual>5?'status-bad':''}">${d.absenteismo_percentual.toFixed(2)}%</td><td><button class="btn-logout" style="color:#ef4444; font-size:1rem;" onclick="app.deleteItem('${id}')"><i class="ph-bold ph-trash"></i></button></td></tr>`;
                 if(d.planta==="PLANTA 3") { t3.e+=d.efetivo; t3.f+=d.faltas; if(d.turno==="1º TURNO") h3_1+=row; else h3_2+=row; } else { t4.e+=d.efetivo; t4.f+=d.faltas; if(d.turno==="1º TURNO") h4_1+=row; else h4_2+=row; }
             });
-            const tot = (t) => t.e>0 ? `<tr class="total-row"><td colspan="2">TOTAL</td><td>${t.e}</td><td>${t.f}</td><td class="${(t.f/t.e*100)>5?'status-bad':''}">${(t.f/t.e*100).toFixed(2)}%</td><td>-</td></tr>` : '';
+            const tot = (t) => t.e>0 ? `<tr class="total-row"><td colspan="2">MÉDIA GERAL DO PERÍODO</td><td>${t.e}</td><td>${t.f}</td><td class="${(t.f/t.e*100)>5?'status-bad':''}">${(t.f/t.e*100).toFixed(2)}%</td><td>-</td></tr>` : '';
             p3.innerHTML = (h3_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h3_1:'') + (h3_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h3_2:'') + tot(t3);
             p4.innerHTML = (h4_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1:'') + (h4_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2:'') + tot(t4);
         });
