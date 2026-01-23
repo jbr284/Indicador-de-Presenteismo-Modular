@@ -96,10 +96,9 @@ function processChartData(snapshot) {
     // Matriz: Setor -> Turno
     let sectorStats = {}; 
     
-    // Consolidado por Setor (Soma T1 + T2)
-    let sectorTotals = {}; // ex: "Fabricação": { ef: 0, fa: 0 }
+    // Consolidado por Setor (Soma T1 + T2) para Gráfico e Cards
+    let sectorTotals = {}; 
 
-    let timeline = {}; 
     let uniqueDays = new Set();
 
     snapshot.forEach(doc => {
@@ -122,12 +121,6 @@ function processChartData(snapshot) {
         if(!sectorTotals[d.setor]) sectorTotals[d.setor] = { ef: 0, fa: 0 };
         sectorTotals[d.setor].ef += d.efetivo;
         sectorTotals[d.setor].fa += d.faltas;
-
-        // Timeline
-        if(!timeline[d.data_registro]) timeline[d.data_registro] = {};
-        if(!timeline[d.data_registro][d.setor]) timeline[d.data_registro][d.setor] = { ef:0, fa:0 };
-        timeline[d.data_registro][d.setor].ef += d.efetivo;
-        timeline[d.data_registro][d.setor].fa += d.faltas;
     });
 
     const daysCount = uniqueDays.size || 1;
@@ -150,11 +143,11 @@ function processChartData(snapshot) {
     // 2. Renderizar Detalhamento por Turno
     renderDetailedCards(sectorStats, daysCount);
 
-    // 3. Renderizar Consolidado por Setor (NOVO)
+    // 3. Renderizar Consolidado por Setor
     renderConsolidatedCards(sectorTotals, daysCount);
 
-    // 4. Renderizar Gráfico
-    renderEvolutionChart(timeline);
+    // 4. Renderizar Gráfico (ACUMULADO)
+    renderEvolutionChart(sectorTotals);
 }
 
 function renderDetailedCards(sectorStats, daysCount) {
@@ -189,7 +182,6 @@ function renderDetailedCards(sectorStats, daysCount) {
     });
 }
 
-// NOVA FUNÇÃO: Renderiza o total acumulado do setor (T1+T2)
 function renderConsolidatedCards(sectorTotals, daysCount) {
     const grid = document.getElementById('grid-consolidado');
     grid.innerHTML = '';
@@ -210,52 +202,58 @@ function renderConsolidatedCards(sectorTotals, daysCount) {
     });
 }
 
-function renderEvolutionChart(timeline) {
+// NOVA FUNÇÃO: Gráfico Acumulado do Período
+function renderEvolutionChart(sectorTotals) {
     const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
 
-    const dates = Object.keys(timeline).sort();
-    const allSectors = new Set();
-    dates.forEach(d => Object.keys(timeline[d]).forEach(s => allSectors.add(s)));
+    const sectors = Object.keys(sectorTotals).sort();
     
-    const datasets = Array.from(allSectors).map(sector => {
-        const hash = sector.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-        const color = `hsl(${hash % 360}, 70%, 50%)`;
+    // Calcula os valores finais
+    const values = sectors.map(s => {
+        const t = sectorTotals[s];
+        return t.ef > 0 ? parseFloat(((t.fa/t.ef)*100).toFixed(2)) : 0;
+    });
 
-        return {
-            label: sector,
-            backgroundColor: color, // Para gráfico de barras
-            borderColor: color,
-            borderWidth: 1,
-            data: dates.map(d => {
-                const item = timeline[d][sector];
-                return item && item.ef > 0 ? parseFloat(((item.fa/item.ef)*100).toFixed(2)) : 0;
-            })
-        };
+    // Gera cores únicas
+    const backgroundColors = sectors.map(s => {
+        const hash = s.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
+        return `hsl(${hash % 360}, 70%, 50%)`;
     });
 
     chartEvolution = new Chart(ctx, {
-        type: 'bar', // Mudança para BARRAS
+        type: 'bar',
         data: {
-            labels: dates.map(d => d.split('-').reverse().join('/')),
-            datasets: datasets
+            labels: sectors, // Setores no Eixo X
+            datasets: [{
+                label: 'Absenteísmo Acumulado',
+                data: values,
+                backgroundColor: backgroundColors,
+                barPercentage: 0.6,
+            }]
         },
         options: { 
             responsive: true, 
             maintainAspectRatio: false,
             scales: { 
-                y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } 
+                y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} },
+                x: { title: {display: true, text: 'Setores'} }
             },
             plugins: { 
-                legend: { position: 'bottom' },
-                // Configuração dos Rótulos de Dados
+                legend: { display: false }, // Legenda desnecessária pois temos labels no eixo X
+                title: { display: true, text: 'Absenteísmo Acumulado por Setor (Período Selecionado)' },
                 datalabels: {
                     color: '#000',
                     anchor: 'end',
                     align: 'top',
                     offset: -4,
-                    font: { weight: 'bold', size: 10 },
-                    formatter: (value) => value > 0 ? value + '%' : '' // Só mostra se > 0
+                    font: { weight: 'bold', size: 11 },
+                    // Formata para mostrar Nome + Valor
+                    formatter: (value, context) => {
+                        const label = context.chart.data.labels[context.dataIndex];
+                        return value > 0 ? `${label}\n${value}%` : '';
+                    },
+                    textAlign: 'center'
                 }
             }
         }
