@@ -81,39 +81,6 @@ window.app = {
         if (!start || !end) return;
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
         processChartData(await getDocs(q), start, end);
-    },
-
-    // --- FUNÇÕES DE EXPORTAÇÃO ---
-    printReport: () => {
-        window.print();
-    },
-
-    exportPDF: () => {
-        const element = document.getElementById('tab-indicadores');
-        const controls = document.getElementById('report-controls');
-        
-        // Ativa o "Modo PDF" que reduz o tamanho dos elementos
-        controls.style.display = 'none';
-        document.body.classList.add('pdf-mode');
-
-        const opt = {
-            margin:       5,
-            filename:     `relatorio_absenteismo_${new Date().toISOString().split('T')[0]}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
-        };
-
-        // Pequeno delay para o CSS aplicar antes de gerar
-        setTimeout(() => {
-            html2pdf().set(opt).from(element).save().then(() => {
-                // Desativa o modo PDF
-                controls.style.display = 'flex';
-                document.body.classList.remove('pdf-mode');
-                // Força redesenho do gráfico para tamanho original
-                chartEvolution.resize();
-            });
-        }, 100);
     }
 };
 
