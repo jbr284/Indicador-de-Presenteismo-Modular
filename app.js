@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// --- CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -22,8 +21,6 @@ const estruturaSetores = {
 };
 
 let chartEvolution = null;
-
-// Registra plugin do Datalabels
 Chart.register(ChartDataLabels);
 
 window.app = {
@@ -53,7 +50,6 @@ window.app = {
         const p = document.getElementById('inp-planta').value, t = document.getElementById('inp-turno').value, s = document.getElementById('inp-setor').value;
         const inp = document.getElementById('inp-efetivo');
         if (!p || !t || !s) return;
-        
         inp.placeholder = "Buscando...";
         try {
             const snap = await getDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`));
@@ -65,9 +61,7 @@ window.app = {
     saveData: async () => {
         const p = document.getElementById('inp-planta').value, t = document.getElementById('inp-turno').value, s = document.getElementById('inp-setor').value;
         const d = document.getElementById('inp-data').value, ef = Number(document.getElementById('inp-efetivo').value), fa = Number(document.getElementById('inp-faltas').value);
-
         if (!p || !s || !d || ef <= 0) return alert("Preencha tudo.");
-
         try {
             await addDoc(collection(db, "registros_absenteismo"), {
                 planta: p, turno: t, setor: s, data_registro: d, timestamp: Timestamp.now(),
@@ -85,9 +79,36 @@ window.app = {
         const start = document.getElementById('dash-start').value, end = document.getElementById('dash-end').value;
         if (!start || !end) return;
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
-        
-        // Passa as datas para processamento para usar no gráfico
         processChartData(await getDocs(q), start, end);
+    },
+
+    // --- NOVAS FUNÇÕES DE IMPRESSÃO/PDF ---
+    printReport: () => {
+        window.print();
+    },
+
+    exportPDF: () => {
+        // Seleciona a área de indicadores (exclui a barra de filtros para ficar limpo no PDF)
+        // Como o PDF gera uma imagem, precisamos esconder temporariamente os botões
+        const element = document.getElementById('tab-indicadores');
+        const controls = document.getElementById('report-controls');
+        
+        // Esconde controles
+        controls.style.display = 'none';
+
+        const opt = {
+            margin:       10,
+            filename:     `relatorio_absenteismo_${new Date().toISOString().split('T')[0]}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 }, // Melhora resolução
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Gera e Salva
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Mostra controles de volta
+            controls.style.display = 'flex';
+        });
     }
 };
 
@@ -101,21 +122,12 @@ function processChartData(snapshot, startDate, endDate) {
     snapshot.forEach(doc => {
         const d = doc.data();
         uniqueDays.add(d.data_registro);
-
-        global.ef += d.efetivo;
-        global.fa += d.faltas;
-
+        global.ef += d.efetivo; global.fa += d.faltas;
         if(plants[d.planta]) { plants[d.planta].ef += d.efetivo; plants[d.planta].fa += d.faltas; }
-
         if(!sectorStats[d.setor]) sectorStats[d.setor] = { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} };
-        if(sectorStats[d.setor][d.turno]) {
-            sectorStats[d.setor][d.turno].ef += d.efetivo;
-            sectorStats[d.setor][d.turno].fa += d.faltas;
-        }
-
+        if(sectorStats[d.setor][d.turno]) { sectorStats[d.setor][d.turno].ef += d.efetivo; sectorStats[d.setor][d.turno].fa += d.faltas; }
         if(!sectorTotals[d.setor]) sectorTotals[d.setor] = { ef: 0, fa: 0 };
-        sectorTotals[d.setor].ef += d.efetivo;
-        sectorTotals[d.setor].fa += d.faltas;
+        sectorTotals[d.setor].ef += d.efetivo; sectorTotals[d.setor].fa += d.faltas;
     });
 
     const daysCount = uniqueDays.size || 1;
@@ -124,10 +136,8 @@ function processChartData(snapshot, startDate, endDate) {
 
     document.getElementById('kpi-p3').innerText = calc(plants["PLANTA 3"].fa, plants["PLANTA 3"].ef) + "%";
     document.getElementById('mean-p3').innerText = "Média: " + mean(plants["PLANTA 3"].fa);
-    
     document.getElementById('kpi-p4').innerText = calc(plants["PLANTA 4"].fa, plants["PLANTA 4"].ef) + "%";
     document.getElementById('mean-p4').innerText = "Média: " + mean(plants["PLANTA 4"].fa);
-
     const globPct = calc(global.fa, global.ef);
     const globEl = document.getElementById('kpi-global');
     globEl.innerText = globPct + "%";
@@ -136,168 +146,74 @@ function processChartData(snapshot, startDate, endDate) {
 
     renderDetailedCards(sectorStats, daysCount);
     renderConsolidatedCards(sectorTotals, daysCount);
-    
-    // Passa as datas para o renderizador do gráfico
     renderEvolutionChart(sectorTotals, startDate, endDate);
 }
 
 function renderDetailedCards(sectorStats, daysCount) {
-    const gridT1 = document.getElementById('grid-t1');
-    const gridT2 = document.getElementById('grid-t2');
-    gridT1.innerHTML = '';
-    gridT2.innerHTML = '';
-
-    const sectors = Object.keys(sectorStats).sort();
-
-    sectors.forEach(sector => {
-        const t1 = sectorStats[sector]["1º TURNO"];
-        const t2 = sectorStats[sector]["2º TURNO"];
-        
+    const gridT1 = document.getElementById('grid-t1'), gridT2 = document.getElementById('grid-t2');
+    gridT1.innerHTML = ''; gridT2.innerHTML = '';
+    Object.keys(sectorStats).sort().forEach(sector => {
+        const t1 = sectorStats[sector]["1º TURNO"], t2 = sectorStats[sector]["2º TURNO"];
         const pct1 = t1.ef > 0 ? ((t1.fa/t1.ef)*100).toFixed(2) : "0.00";
-        const alert1 = parseFloat(pct1) > 5 ? 'alert-text' : '';
-        gridT1.innerHTML += `
-            <div class="mini-card border-t1">
-                <h4>${sector}</h4>
-                <div class="val ${alert1}">${pct1}%</div>
-                <span class="sub-val">Média: ${(t1.fa/daysCount).toFixed(1)}</span>
-            </div>`;
-
         const pct2 = t2.ef > 0 ? ((t2.fa/t2.ef)*100).toFixed(2) : "0.00";
-        const alert2 = parseFloat(pct2) > 5 ? 'alert-text' : '';
-        gridT2.innerHTML += `
-            <div class="mini-card border-t2">
-                <h4>${sector}</h4>
-                <div class="val ${alert2}">${pct2}%</div>
-                <span class="sub-val">Média: ${(t2.fa/daysCount).toFixed(1)}</span>
-            </div>`;
+        gridT1.innerHTML += `<div class="mini-card border-t1"><h4>${sector}</h4><div class="val ${parseFloat(pct1)>5?'alert-text':''}">${pct1}%</div><span class="sub-val">Média: ${(t1.fa/daysCount).toFixed(1)}</span></div>`;
+        gridT2.innerHTML += `<div class="mini-card border-t2"><h4>${sector}</h4><div class="val ${parseFloat(pct2)>5?'alert-text':''}">${pct2}%</div><span class="sub-val">Média: ${(t2.fa/daysCount).toFixed(1)}</span></div>`;
     });
 }
 
 function renderConsolidatedCards(sectorTotals, daysCount) {
     const grid = document.getElementById('grid-consolidado');
     grid.innerHTML = '';
-
-    const sectors = Object.keys(sectorTotals).sort();
-
-    sectors.forEach(sector => {
+    Object.keys(sectorTotals).sort().forEach(sector => {
         const t = sectorTotals[sector];
         const pct = t.ef > 0 ? ((t.fa/t.ef)*100).toFixed(2) : "0.00";
-        const alert = parseFloat(pct) > 5 ? 'alert-text' : '';
-
-        grid.innerHTML += `
-            <div class="mini-card border-sector">
-                <h4>Total ${sector}</h4>
-                <div class="val ${alert}">${pct}%</div>
-                <span class="sub-val">Média Dia: ${(t.fa/daysCount).toFixed(1)}</span>
-            </div>`;
+        grid.innerHTML += `<div class="mini-card border-sector"><h4>Total ${sector}</h4><div class="val ${parseFloat(pct)>5?'alert-text':''}">${pct}%</div><span class="sub-val">Média Dia: ${(t.fa/daysCount).toFixed(1)}</span></div>`;
     });
 }
 
-// ATUALIZADO: Recebe datas para o rodapé
 function renderEvolutionChart(sectorTotals, startDate, endDate) {
     const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
-
     const sectors = Object.keys(sectorTotals).sort();
+    const values = sectors.map(s => { const t = sectorTotals[s]; return t.ef > 0 ? parseFloat(((t.fa/t.ef)*100).toFixed(2)) : 0; });
+    const bgColors = sectors.map(s => `hsl(${s.split('').reduce((a,b)=>a+b.charCodeAt(0),0) % 360}, 70%, 50%)`);
     
-    const values = sectors.map(s => {
-        const t = sectorTotals[s];
-        return t.ef > 0 ? parseFloat(((t.fa/t.ef)*100).toFixed(2)) : 0;
-    });
-
-    const backgroundColors = sectors.map(s => {
-        const hash = s.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-        return `hsl(${hash % 360}, 70%, 50%)`;
-    });
-
-    // Formata datas para PT-BR
     const fmt = (dt) => dt ? dt.split('-').reverse().join('/') : '...';
-    const periodLabel = `Período: ${fmt(startDate)} até ${fmt(endDate)}`;
-
+    
     chartEvolution = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: sectors,
-            datasets: [{
-                label: 'Absenteísmo Acumulado',
-                data: values,
-                backgroundColor: backgroundColors,
-                barPercentage: 0.6,
-            }]
-        },
+        data: { labels: sectors, datasets: [{ label: 'Absenteísmo Acumulado', data: values, backgroundColor: bgColors, barPercentage: 0.6 }] },
         options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            scales: { 
-                y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} },
-                x: { title: {display: true, text: 'Setores'} }
-            },
+            responsive: true, maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, title: {display:true, text:'% Absenteísmo'} }, x: { title:{display:true, text:'Setores'} } },
             plugins: { 
-                legend: { display: false }, 
-                // TÍTULO PRINCIPAL
-                title: { 
-                    display: true, 
-                    text: 'Absenteísmo Acumulado por Setor (Período Selecionado)',
-                    font: { size: 16 }
-                },
-                // NOVO: SUBTÍTULO NO RODAPÉ
-                subtitle: {
-                    display: true,
-                    text: periodLabel,
-                    position: 'bottom', // Define que aparece embaixo
-                    padding: { top: 10 },
-                    font: { size: 12, style: 'italic' },
-                    color: '#666'
-                },
-                datalabels: {
-                    color: '#000',
-                    anchor: 'end',
-                    align: 'top',
-                    offset: -4,
-                    font: { weight: 'bold', size: 11 },
-                    formatter: (value, context) => {
-                        const label = context.chart.data.labels[context.dataIndex];
-                        return value > 0 ? `${label}\n${value}%` : '';
-                    },
-                    textAlign: 'center'
-                }
+                legend: { display: false },
+                title: { display: true, text: 'Absenteísmo Acumulado por Setor', font: {size:16} },
+                subtitle: { display: true, text: `Período: ${fmt(startDate)} até ${fmt(endDate)}`, position: 'bottom', padding:{top:10} },
+                datalabels: { color:'#000', anchor:'end', align:'top', offset:-4, font:{weight:'bold', size:11}, formatter: (v,c) => v>0 ? `${c.chart.data.labels[c.dataIndex]}\n${v}%` : '', textAlign: 'center' }
             }
         }
     });
 }
 
-// Listeners
 onAuthStateChanged(auth, u => {
     document.getElementById('auth-overlay').style.display = u ? 'none' : 'flex';
     document.getElementById('app-container').style.display = u ? 'block' : 'none';
     if(u) {
-        startRealtimeTable();
+        onSnapshot(query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc")), snap => {
+            const p3 = document.querySelector('#table-p3 tbody'), p4 = document.querySelector('#table-p4 tbody');
+            let h3_1='', h3_2='', h4_1='', h4_2='', t3={e:0,f:0}, t4={e:0,f:0};
+            snap.forEach(doc => {
+                const d = doc.data(), id = doc.id;
+                const row = `<tr><td>${d.data_registro.split('-').reverse().join('/')}</td><td>${d.setor}</td><td>${d.efetivo}</td><td>${d.faltas}</td><td class="${d.absenteismo_percentual>5?'status-bad':''}">${d.absenteismo_percentual.toFixed(2)}%</td><td><button class="danger-btn" onclick="app.deleteItem('${id}')">X</button></td></tr>`;
+                if(d.planta==="PLANTA 3") { t3.e+=d.efetivo; t3.f+=d.faltas; if(d.turno==="1º TURNO") h3_1+=row; else h3_2+=row; } else { t4.e+=d.efetivo; t4.f+=d.faltas; if(d.turno==="1º TURNO") h4_1+=row; else h4_2+=row; }
+            });
+            const tot = (t) => t.e>0 ? `<tr class="total-row"><td colspan="2">TOTAL</td><td>${t.e}</td><td>${t.f}</td><td class="${(t.f/t.e*100)>5?'status-bad':''}">${(t.f/t.e*100).toFixed(2)}%</td><td>-</td></tr>` : '';
+            p3.innerHTML = (h3_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h3_1:'') + (h3_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h3_2:'') + tot(t3);
+            p4.innerHTML = (h4_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1:'') + (h4_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2:'') + tot(t4);
+        });
         const d = new Date(), y = d.getFullYear(), m = d.getMonth();
         document.getElementById('dash-start').value = new Date(y, m, 1).toISOString().split('T')[0];
         document.getElementById('dash-end').value = new Date(y, m+1, 0).toISOString().split('T')[0];
     }
 });
-
-function startRealtimeTable() {
-    onSnapshot(query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc")), snap => {
-        const p3 = document.querySelector('#table-p3 tbody'), p4 = document.querySelector('#table-p4 tbody');
-        let h3_1='', h3_2='', h4_1='', h4_2='', t3={e:0,f:0}, t4={e:0,f:0};
-
-        snap.forEach(doc => {
-            const d = doc.data(), id = doc.id;
-            const row = `<tr><td>${d.data_registro.split('-').reverse().join('/')}</td><td>${d.setor}</td><td>${d.efetivo}</td><td>${d.faltas}</td><td class="${d.absenteismo_percentual>5?'status-bad':''}">${d.absenteismo_percentual.toFixed(2)}%</td><td><button class="danger-btn" onclick="app.deleteItem('${id}')">X</button></td></tr>`;
-            
-            if(d.planta==="PLANTA 3") { t3.e+=d.efetivo; t3.f+=d.faltas; if(d.turno==="1º TURNO") h3_1+=row; else h3_2+=row; }
-            else { t4.e+=d.efetivo; t4.f+=d.faltas; if(d.turno==="1º TURNO") h4_1+=row; else h4_2+=row; }
-        });
-
-        const totalRow = (t) => t.e>0 ? `<tr class="total-row"><td colspan="2">TOTAL</td><td>${t.e}</td><td>${t.f}</td><td class="${(t.f/t.e*100)>5?'status-bad':''}">${(t.f/t.e*100).toFixed(2)}%</td><td>-</td></tr>` : '';
-        p3.innerHTML = (h3_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h3_1 : '') + (h3_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h3_2 : '') + totalRow(t3);
-        p4.innerHTML = (h4_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1 : '') + (h4_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2 : '') + totalRow(t4);
-    });
-}
-
-setInterval(() => {
-    const el = document.getElementById('current-datetime');
-    if(el) el.innerText = new Date().toLocaleString('pt-BR');
-}, 1000);
