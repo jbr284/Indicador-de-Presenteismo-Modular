@@ -82,31 +82,25 @@ window.app = {
         processChartData(await getDocs(q), start, end);
     },
 
-    // --- NOVAS FUNÇÕES DE IMPRESSÃO/PDF ---
     printReport: () => {
         window.print();
     },
 
     exportPDF: () => {
-        // Seleciona a área de indicadores (exclui a barra de filtros para ficar limpo no PDF)
-        // Como o PDF gera uma imagem, precisamos esconder temporariamente os botões
         const element = document.getElementById('tab-indicadores');
         const controls = document.getElementById('report-controls');
-        
-        // Esconde controles
         controls.style.display = 'none';
 
         const opt = {
             margin:       10,
             filename:     `relatorio_absenteismo_${new Date().toISOString().split('T')[0]}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2 }, // Melhora resolução
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            html2canvas:  { scale: 2 },
+            // MUDANÇA AQUI: orientation: 'landscape' para deitar a folha
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
         };
 
-        // Gera e Salva
         html2pdf().set(opt).from(element).save().then(() => {
-            // Mostra controles de volta
             controls.style.display = 'flex';
         });
     }
