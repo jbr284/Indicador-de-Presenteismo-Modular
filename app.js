@@ -1,4 +1,3 @@
-// Importações Oficiais do Firebase v9+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -13,366 +12,257 @@ const firebaseConfig = {
   appId: "1:895253390208:web:943f8679a0dbf36a531765"
 };
 
-// Inicialização
 const appFire = initializeApp(firebaseConfig);
 const db = getFirestore(appFire);
 const auth = getAuth(appFire);
 
-// --- DADOS DO NEGÓCIO ---
 const estruturaSetores = {
     "PLANTA 3": ["Montagem Estrutural", "Fabricação"],
     "PLANTA 4": ["Montagem final", "Painéis"]
 };
 
-// Variáveis Globais para os Gráficos
 let chartEvolution = null;
-let chartSectors = null;
 
-// Interface Global
 window.app = {
-    
-    // 1. Autenticação
     login: async () => {
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-pass').value;
         try {
-            await signInWithEmailAndPassword(auth, email, pass);
-        } catch (error) {
-            document.getElementById('auth-error').innerText = "Erro: " + error.message;
-        }
+            await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-pass').value);
+        } catch (e) { document.getElementById('auth-error').innerText = e.message; }
     },
-
     logout: () => signOut(auth),
 
-    // 2. UI - Navegação
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-        
         document.getElementById(tabId).classList.add('active');
         event.target.classList.add('active');
-
-        if (tabId === 'tab-indicadores') {
-            app.updateDashboard();
-        }
+        if (tabId === 'tab-indicadores') app.updateDashboard();
     },
 
     updateSectors: () => {
-        const planta = document.getElementById('inp-planta').value;
-        const setorSelect = document.getElementById('inp-setor');
-        setorSelect.innerHTML = '<option value="">Selecione...</option>';
-        
-        if (estruturaSetores[planta]) {
-            estruturaSetores[planta].forEach(setor => {
-                const opt = document.createElement('option');
-                opt.value = setor;
-                opt.innerText = setor;
-                setorSelect.appendChild(opt);
-            });
-        }
+        const p = document.getElementById('inp-planta').value;
+        const s = document.getElementById('inp-setor');
+        s.innerHTML = '<option value="">Selecione...</option>';
+        if (estruturaSetores[p]) estruturaSetores[p].forEach(x => s.innerHTML += `<option value="${x}">${x}</option>`);
     },
 
-    // 3. Carregar Efetivo Automático
     loadHeadcount: async () => {
-        const planta = document.getElementById('inp-planta').value;
-        const turno = document.getElementById('inp-turno').value;
-        const setor = document.getElementById('inp-setor').value;
-        const efetivoInput = document.getElementById('inp-efetivo');
-
-        if (!planta || !turno || !setor) return;
-
-        const configId = `${planta}_${turno}_${setor}`;
-
+        const p = document.getElementById('inp-planta').value, t = document.getElementById('inp-turno').value, s = document.getElementById('inp-setor').value;
+        const inp = document.getElementById('inp-efetivo');
+        if (!p || !t || !s) return;
+        
+        inp.placeholder = "Buscando...";
         try {
-            efetivoInput.placeholder = "Buscando...";
-            const docRef = doc(db, "config_efetivo", configId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                efetivoInput.value = docSnap.data().efetivo_atual;
-            } else {
-                efetivoInput.value = "";
-                efetivoInput.placeholder = "Digite o efetivo inicial...";
-            }
-        } catch (e) {
-            console.error("Erro ao buscar efetivo:", e);
-        }
+            const snap = await getDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`));
+            if (snap.exists()) inp.value = snap.data().efetivo_atual;
+            else { inp.value = ""; inp.placeholder = "Digite..."; }
+        } catch (e) { console.error(e); }
     },
 
-    // 4. CRUD (Salvar)
     saveData: async () => {
-        const planta = document.getElementById('inp-planta').value;
-        const turno = document.getElementById('inp-turno').value;
-        const setor = document.getElementById('inp-setor').value;
-        const dataRaw = document.getElementById('inp-data').value;
-        const efetivo = Number(document.getElementById('inp-efetivo').value);
-        const faltas = Number(document.getElementById('inp-faltas').value);
+        const p = document.getElementById('inp-planta').value, t = document.getElementById('inp-turno').value, s = document.getElementById('inp-setor').value;
+        const d = document.getElementById('inp-data').value, ef = Number(document.getElementById('inp-efetivo').value), fa = Number(document.getElementById('inp-faltas').value);
 
-        if (!planta || !setor || !dataRaw || efetivo <= 0) {
-            alert("Por favor, preencha todos os campos corretamente.");
-            return;
-        }
-
-        const absenteismo = (faltas / efetivo) * 100;
-        const configId = `${planta}_${turno}_${setor}`;
+        if (!p || !s || !d || ef <= 0) return alert("Preencha tudo.");
 
         try {
             await addDoc(collection(db, "registros_absenteismo"), {
-                planta,
-                turno,
-                setor,
-                data_registro: dataRaw,
-                timestamp: Timestamp.now(),
-                efetivo,
-                faltas,
-                absenteismo_percentual: parseFloat(absenteismo.toFixed(2)),
+                planta: p, turno: t, setor: s, data_registro: d, timestamp: Timestamp.now(),
+                efetivo: ef, faltas: fa, absenteismo_percentual: parseFloat(((fa/ef)*100).toFixed(2)),
                 usuario_id: auth.currentUser.uid
             });
-
-            await setDoc(doc(db, "config_efetivo", configId), {
-                efetivo_atual: efetivo,
-                ultima_atualizacao: Timestamp.now()
-            }, { merge: true });
-
-            alert("Registro salvo e efetivo atualizado!");
-        } catch (e) {
-            console.error("Erro ao salvar", e);
-            alert("Erro ao salvar no banco de dados.");
-        }
+            await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
+            alert("Salvo!");
+        } catch (e) { alert("Erro ao salvar."); }
     },
 
-    // 5. CRUD (Excluir)
-    deleteItem: async (id) => {
-        if(confirm("Tem certeza que deseja excluir este registro?")) {
-            await deleteDoc(doc(db, "registros_absenteismo", id));
-        }
-    },
+    deleteItem: async (id) => { if(confirm("Excluir?")) await deleteDoc(doc(db, "registros_absenteismo", id)); },
 
-    // 6. DASHBOARD & INDICADORES
     updateDashboard: async () => {
-        const start = document.getElementById('dash-start').value;
-        const end = document.getElementById('dash-end').value;
-
+        const start = document.getElementById('dash-start').value, end = document.getElementById('dash-end').value;
         if (!start || !end) return;
-
-        const q = query(
-            collection(db, "registros_absenteismo"),
-            where("data_registro", ">=", start),
-            where("data_registro", "<=", end),
-            orderBy("data_registro", "asc")
-        );
-
-        const snapshot = await getDocs(q);
-        processChartData(snapshot);
-    },
+        const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
+        processChartData(await getDocs(q));
+    }
 };
 
-// --- LOGICA DE PROCESSAMENTO DE DADOS (KPIs + Gráficos) ---
+// --- NOVA LÓGICA DE DADOS MATRICIAL ---
 function processChartData(snapshot) {
-    let totalP3 = { efetivo: 0, faltas: 0 };
-    let totalP4 = { efetivo: 0, faltas: 0 };
+    // 1. Estruturas de Acumulação
+    let global = { ef: 0, fa: 0 };
+    let plants = { "PLANTA 3": { ef:0, fa:0 }, "PLANTA 4": { ef:0, fa:0 } };
+    let turns = { "1º TURNO": { ef:0, fa:0 }, "2º TURNO": { ef:0, fa:0 } };
+    
+    // Matriz: Setor -> Turno
+    let sectorStats = {}; // ex: "Fabricação": { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} }
+    
+    // Timeline para Gráfico: Data -> Setor -> %
     let timeline = {}; 
-    let sectors = {}; 
+
+    // Dias únicos para cálculo de média
+    let uniqueDays = new Set();
 
     snapshot.forEach(doc => {
         const d = doc.data();
-        
-        // Acumula Totais
-        if (d.planta === "PLANTA 3") {
-            totalP3.efetivo += d.efetivo;
-            totalP3.faltas += d.faltas;
-        } else {
-            totalP4.efetivo += d.efetivo;
-            totalP4.faltas += d.faltas;
+        uniqueDays.add(d.data_registro);
+
+        // A. Acumula Global
+        global.ef += d.efetivo;
+        global.fa += d.faltas;
+
+        // B. Acumula Planta
+        if(plants[d.planta]) { plants[d.planta].ef += d.efetivo; plants[d.planta].fa += d.faltas; }
+
+        // C. Acumula Turno
+        if(turns[d.turno]) { turns[d.turno].ef += d.efetivo; turns[d.turno].fa += d.faltas; }
+
+        // D. Acumula Setor/Turno
+        if(!sectorStats[d.setor]) sectorStats[d.setor] = { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} };
+        if(sectorStats[d.setor][d.turno]) {
+            sectorStats[d.setor][d.turno].ef += d.efetivo;
+            sectorStats[d.setor][d.turno].fa += d.faltas;
         }
 
-        // Timeline (Agrupa por dia)
-        if (!timeline[d.data_registro]) {
-            timeline[d.data_registro] = { p3_ef: 0, p3_fa: 0, p4_ef: 0, p4_fa: 0 };
-        }
-        if (d.planta === "PLANTA 3") {
-            timeline[d.data_registro].p3_ef += d.efetivo;
-            timeline[d.data_registro].p3_fa += d.faltas;
-        } else {
-            timeline[d.data_registro].p4_ef += d.efetivo;
-            timeline[d.data_registro].p4_fa += d.faltas;
-        }
-
-        // Setores
-        if (!sectors[d.setor]) sectors[d.setor] = { efetivo: 0, faltas: 0 };
-        sectors[d.setor].efetivo += d.efetivo;
-        sectors[d.setor].faltas += d.faltas;
+        // E. Timeline (Gráfico)
+        if(!timeline[d.data_registro]) timeline[d.data_registro] = {};
+        if(!timeline[d.data_registro][d.setor]) timeline[d.data_registro][d.setor] = { ef:0, fa:0 };
+        timeline[d.data_registro][d.setor].ef += d.efetivo;
+        timeline[d.data_registro][d.setor].fa += d.faltas;
     });
 
-    // --- CÁLCULO 1: TAXA DE ABSENTEÍSMO (%) ---
-    const calcAbs = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
+    const daysCount = uniqueDays.size || 1;
+    const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
+    const mean = (f) => (f / daysCount).toFixed(1);
+
+    // 2. Renderizar KPIs Macro (Topo)
+    document.getElementById('kpi-p3').innerText = calc(plants["PLANTA 3"].fa, plants["PLANTA 3"].ef) + "%";
+    document.getElementById('mean-p3').innerText = "Média: " + mean(plants["PLANTA 3"].fa);
     
-    const kpiP3 = calcAbs(totalP3.faltas, totalP3.efetivo);
-    const kpiP4 = calcAbs(totalP4.faltas, totalP4.efetivo);
-    const kpiGlobal = calcAbs(totalP3.faltas + totalP4.faltas, totalP3.efetivo + totalP4.efetivo);
+    document.getElementById('kpi-p4').innerText = calc(plants["PLANTA 4"].fa, plants["PLANTA 4"].ef) + "%";
+    document.getElementById('mean-p4').innerText = "Média: " + mean(plants["PLANTA 4"].fa);
 
-    document.getElementById('kpi-p3').innerText = `${kpiP3}%`;
-    document.getElementById('kpi-p4').innerText = `${kpiP4}%`;
-    document.getElementById('kpi-global').innerText = `${kpiGlobal}%`;
-    document.getElementById('kpi-global').className = `kpi-value ${kpiGlobal > 5 ? 'alert' : ''}`;
+    const globPct = calc(global.fa, global.ef);
+    const globEl = document.getElementById('kpi-global');
+    globEl.innerText = globPct + "%";
+    globEl.className = `val ${parseFloat(globPct) > 5 ? 'alert-text' : ''}`;
+    document.getElementById('mean-global').innerText = "Média: " + mean(global.fa);
 
-    // --- CÁLCULO 2: MÉDIA ARITMÉTICA (QTD/DIA) ---
-    // Conta quantos dias únicos existem no período filtrado
-    const daysCount = Object.keys(timeline).length || 1; // Evita divisão por zero
+    // 3. Renderizar KPIs Totais Turno (Fundo)
+    document.getElementById('total-t1').innerText = calc(turns["1º TURNO"].fa, turns["1º TURNO"].ef) + "%";
+    document.getElementById('mean-t1').innerText = "Média: " + mean(turns["1º TURNO"].fa);
 
-    const meanP3 = (totalP3.faltas / daysCount).toFixed(1);
-    const meanP4 = (totalP4.faltas / daysCount).toFixed(1);
-    const meanGlobal = ((totalP3.faltas + totalP4.faltas) / daysCount).toFixed(1);
+    document.getElementById('total-t2').innerText = calc(turns["2º TURNO"].fa, turns["2º TURNO"].ef) + "%";
+    document.getElementById('mean-t2').innerText = "Média: " + mean(turns["2º TURNO"].fa);
 
-    document.getElementById('mean-p3').innerText = `${meanP3}/dia`;
-    document.getElementById('mean-p4').innerText = `${meanP4}/dia`;
-    document.getElementById('mean-global').innerText = `${meanGlobal}/dia`;
+    // 4. Renderizar Grids de Setores
+    renderDetailedCards(sectorStats, daysCount);
 
-
-    // --- GRÁFICOS ---
-    const labels = Object.keys(timeline).sort();
-    const dataP3 = labels.map(date => {
-        const t = timeline[date];
-        return t.p3_ef > 0 ? ((t.p3_fa / t.p3_ef) * 100).toFixed(2) : 0;
-    });
-    const dataP4 = labels.map(date => {
-        const t = timeline[date];
-        return t.p4_ef > 0 ? ((t.p4_fa / t.p4_ef) * 100).toFixed(2) : 0;
-    });
-
-    const sectorLabels = Object.keys(sectors);
-    const sectorData = sectorLabels.map(s => {
-        return sectors[s].efetivo > 0 ? ((sectors[s].faltas / sectors[s].efetivo) * 100).toFixed(2) : 0;
-    });
-
-    renderCharts(labels, dataP3, dataP4, sectorLabels, sectorData);
+    // 5. Renderizar Gráfico
+    renderEvolutionChart(timeline);
 }
 
-function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
-    const ctxEvo = document.getElementById('chart-evolution');
-    const ctxSec = document.getElementById('chart-sectors');
+function renderDetailedCards(sectorStats, daysCount) {
+    const gridT1 = document.getElementById('grid-t1');
+    const gridT2 = document.getElementById('grid-t2');
+    gridT1.innerHTML = '';
+    gridT2.innerHTML = '';
 
+    const sectors = Object.keys(sectorStats).sort();
+
+    sectors.forEach(sector => {
+        const t1 = sectorStats[sector]["1º TURNO"];
+        const t2 = sectorStats[sector]["2º TURNO"];
+        
+        // Card Turno 1
+        const pct1 = t1.ef > 0 ? ((t1.fa/t1.ef)*100).toFixed(2) : "0.00";
+        const alert1 = parseFloat(pct1) > 5 ? 'alert-text' : '';
+        gridT1.innerHTML += `
+            <div class="mini-card border-t1">
+                <h4>${sector}</h4>
+                <div class="val ${alert1}">${pct1}%</div>
+                <span class="sub-val">Média: ${(t1.fa/daysCount).toFixed(1)}</span>
+            </div>`;
+
+        // Card Turno 2
+        const pct2 = t2.ef > 0 ? ((t2.fa/t2.ef)*100).toFixed(2) : "0.00";
+        const alert2 = parseFloat(pct2) > 5 ? 'alert-text' : '';
+        gridT2.innerHTML += `
+            <div class="mini-card border-t2">
+                <h4>${sector}</h4>
+                <div class="val ${alert2}">${pct2}%</div>
+                <span class="sub-val">Média: ${(t2.fa/daysCount).toFixed(1)}</span>
+            </div>`;
+    });
+}
+
+function renderEvolutionChart(timeline) {
+    const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
-    if (chartSectors) chartSectors.destroy();
 
-    chartEvolution = new Chart(ctxEvo, {
+    const dates = Object.keys(timeline).sort();
+    // Identificar todos os setores únicos presentes nestas datas para criar as linhas
+    const allSectors = new Set();
+    dates.forEach(d => Object.keys(timeline[d]).forEach(s => allSectors.add(s)));
+    
+    const datasets = Array.from(allSectors).map(sector => {
+        // Cor aleatória determinística (baseada no nome) para manter consistência
+        const hash = sector.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
+        const color = `hsl(${hash % 360}, 70%, 50%)`;
+
+        return {
+            label: sector,
+            borderColor: color,
+            tension: 0.3,
+            data: dates.map(d => {
+                const item = timeline[d][sector];
+                return item && item.ef > 0 ? ((item.fa/item.ef)*100).toFixed(2) : 0;
+            })
+        };
+    });
+
+    chartEvolution = new Chart(ctx, {
         type: 'line',
         data: {
             labels: dates.map(d => d.split('-').reverse().join('/')),
-            datasets: [
-                { label: 'Planta 3 (%)', data: p3Vals, borderColor: '#2563eb', tension: 0.3 },
-                { label: 'Planta 4 (%)', data: p4Vals, borderColor: '#10b981', tension: 0.3 }
-            ]
+            datasets: datasets
         },
-        options: { responsive: true, scales: { y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } } }
-    });
-
-    chartSectors = new Chart(ctxSec, {
-        type: 'bar',
-        data: {
-            labels: secLabels,
-            datasets: [{
-                label: '% Absenteísmo por Setor',
-                data: secVals,
-                backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981']
-            }]
-        },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } },
+            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } } }
+        }
     });
 }
 
-
-// --- LISTENERS (Tempo Real) ---
-
-onAuthStateChanged(auth, (user) => {
-    const overlay = document.getElementById('auth-overlay');
-    const appContainer = document.getElementById('app-container');
-    
-    if (user) {
-        overlay.style.display = 'none';
-        appContainer.style.display = 'block';
-        startDataListener(); 
-        
-        const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-        document.getElementById('dash-start').value = firstDay;
-        document.getElementById('dash-end').value = lastDay;
-
-    } else {
-        overlay.style.display = 'flex';
-        appContainer.style.display = 'none';
+// Listeners
+onAuthStateChanged(auth, u => {
+    document.getElementById('auth-overlay').style.display = u ? 'none' : 'flex';
+    document.getElementById('app-container').style.display = u ? 'block' : 'none';
+    if(u) {
+        startRealtimeTable();
+        // Datas Padrão (Mês Atual)
+        const d = new Date(), y = d.getFullYear(), m = d.getMonth();
+        document.getElementById('dash-start').value = new Date(y, m, 1).toISOString().split('T')[0];
+        document.getElementById('dash-end').value = new Date(y, m+1, 0).toISOString().split('T')[0];
     }
 });
 
-setInterval(() => {
-    const now = new Date();
-    document.getElementById('current-datetime').innerText = now.toLocaleString('pt-BR');
-}, 1000);
+function startRealtimeTable() {
+    onSnapshot(query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc")), snap => {
+        const p3 = document.querySelector('#table-p3 tbody'), p4 = document.querySelector('#table-p4 tbody');
+        let h3_1='', h3_2='', h4_1='', h4_2='', t3={e:0,f:0}, t4={e:0,f:0};
 
-function startDataListener() {
-    const q = query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc"));
-    
-    onSnapshot(q, (snapshot) => {
-        const tbodyP3 = document.querySelector('#table-p3 tbody');
-        const tbodyP4 = document.querySelector('#table-p4 tbody');
-
-        let p3_t1 = '', p3_t2 = '';
-        let p4_t1 = '', p4_t2 = '';
-        let accP3 = { efetivo: 0, faltas: 0 };
-        let accP4 = { efetivo: 0, faltas: 0 };
-
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-            const row = `
-                <tr>
-                    <td>${data.data_registro.split('-').reverse().join('/')}</td>
-                    <td>${data.setor}</td>
-                    <td>${data.efetivo}</td>
-                    <td>${data.faltas}</td>
-                    <td class="${data.absenteismo_percentual > 5 ? 'status-bad' : ''}">
-                        ${data.absenteismo_percentual.toFixed(2)}%
-                    </td>
-                    <td><button class="danger-btn" onclick="app.deleteItem('${doc.id}')">Excluir</button></td>
-                </tr>
-            `;
-
-            if (data.planta === "PLANTA 3") {
-                accP3.efetivo += data.efetivo;
-                accP3.faltas += data.faltas;
-                if (data.turno === "1º TURNO") p3_t1 += row; else p3_t2 += row;
-            } else if (data.planta === "PLANTA 4") {
-                accP4.efetivo += data.efetivo;
-                accP4.faltas += data.faltas;
-                if (data.turno === "1º TURNO") p4_t1 += row; else p4_t2 += row;
-            }
+        snap.forEach(doc => {
+            const d = doc.data(), id = doc.id;
+            const row = `<tr><td>${d.data_registro.split('-').reverse().join('/')}</td><td>${d.setor}</td><td>${d.efetivo}</td><td>${d.faltas}</td><td class="${d.absenteismo_percentual>5?'status-bad':''}">${d.absenteismo_percentual.toFixed(2)}%</td><td><button class="danger-btn" onclick="app.deleteItem('${id}')">X</button></td></tr>`;
+            
+            if(d.planta==="PLANTA 3") { t3.e+=d.efetivo; t3.f+=d.faltas; if(d.turno==="1º TURNO") h3_1+=row; else h3_2+=row; }
+            else { t4.e+=d.efetivo; t4.f+=d.faltas; if(d.turno==="1º TURNO") h4_1+=row; else h4_2+=row; }
         });
 
-        const generateTotalRow = (acc) => {
-            if (acc.efetivo === 0) return '';
-            const totalAbs = (acc.faltas / acc.efetivo) * 100;
-            return `
-                <tr class="total-row">
-                    <td colspan="2" style="text-align: right;">MÉDIA GERAL DO PERÍODO:</td>
-                    <td>${acc.efetivo}</td>
-                    <td>${acc.faltas}</td>
-                    <td class="${totalAbs > 5 ? 'status-bad' : ''}">${totalAbs.toFixed(2)}%</td>
-                    <td>-</td>
-                </tr>
-            `;
-        };
-
-        let finalHtmlP3 = '';
-        if (p3_t1) finalHtmlP3 += `<tr class="turn-header"><td colspan="6">1º TURNO</td></tr>` + p3_t1;
-        if (p3_t2) finalHtmlP3 += `<tr class="turn-header"><td colspan="6">2º TURNO</td></tr>` + p3_t2;
-        finalHtmlP3 += generateTotalRow(accP3);
-
-        let finalHtmlP4 = '';
-        if (p4_t1) finalHtmlP4 += `<tr class="turn-header"><td colspan="6">1º TURNO</td></tr>` + p4_t1;
-        if (p4_t2) finalHtmlP4 += `<tr class="turn-header"><td colspan="6">2º TURNO</td></tr>` + p4_t2;
-        finalHtmlP4 += generateTotalRow(accP4);
-
-        tbodyP3.innerHTML = finalHtmlP3;
-        tbodyP4.innerHTML = finalHtmlP4;
+        const totalRow = (t) => t.e>0 ? `<tr class="total-row"><td colspan="2">TOTAL</td><td>${t.e}</td><td>${t.f}</td><td class="${(t.f/t.e*100)>5?'status-bad':''}">${(t.f/t.e*100).toFixed(2)}%</td><td>-</td></tr>` : '';
+        p3.innerHTML = (h3_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h3_1 : '') + (h3_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h3_2 : '') + totalRow(t3);
+        p4.innerHTML = (h4_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1 : '') + (h4_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2 : '') + totalRow(t4);
     });
 }
