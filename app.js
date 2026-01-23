@@ -1,9 +1,9 @@
 // Importações Oficiais do Firebase v9+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// --- CONFIGURAÇÃO (ATUALIZADO COM SEUS DADOS) ---
+// --- CONFIGURAÇÃO ---
 const firebaseConfig = {
   apiKey: "AIzaSyAZsg2GbxrgX70VZwPHiXkoFMCTt7i3_6U",
   authDomain: "indicador-de-presenca-modular.firebaseapp.com",
@@ -18,9 +18,9 @@ const appFire = initializeApp(firebaseConfig);
 const db = getFirestore(appFire);
 const auth = getAuth(appFire);
 
-// --- DADOS DO NEGÓCIO (ATUALIZADO) ---
+// --- DADOS DO NEGÓCIO ---
 const estruturaSetores = {
-    "PLANTA 3": ["Montagem Estrutural", "Fabricação"], // Correção Solicitada
+    "PLANTA 3": ["Montagem Estrutural", "Fabricação"],
     "PLANTA 4": ["Montagem final", "Painéis"]
 };
 
@@ -52,7 +52,6 @@ window.app = {
         document.getElementById(tabId).classList.add('active');
         event.target.classList.add('active');
 
-        // Se abriu a aba Indicadores, carrega o dashboard
         if (tabId === 'tab-indicadores') {
             app.updateDashboard();
         }
@@ -73,6 +72,36 @@ window.app = {
         }
     },
 
+    // --- NOVO RECURSO: CARREGAR EFETIVO AUTOMÁTICO ---
+    loadHeadcount: async () => {
+        const planta = document.getElementById('inp-planta').value;
+        const turno = document.getElementById('inp-turno').value;
+        const setor = document.getElementById('inp-setor').value;
+        const efetivoInput = document.getElementById('inp-efetivo');
+
+        // Só busca se os 3 campos estiverem preenchidos
+        if (!planta || !turno || !setor) return;
+
+        // Cria um ID único para essa combinação (ex: "PLANTA 3_1º TURNO_Fabricação")
+        const configId = `${planta}_${turno}_${setor}`;
+
+        try {
+            efetivoInput.placeholder = "Buscando...";
+            const docRef = doc(db, "config_efetivo", configId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                efetivoInput.value = docSnap.data().efetivo_atual;
+            } else {
+                // Se nunca foi salvo, deixa vazio ou zero
+                efetivoInput.value = "";
+                efetivoInput.placeholder = "Digite o efetivo inicial...";
+            }
+        } catch (e) {
+            console.error("Erro ao buscar efetivo:", e);
+        }
+    },
+
     // 3. CRUD (Salvar)
     saveData: async () => {
         const planta = document.getElementById('inp-planta').value;
@@ -88,8 +117,10 @@ window.app = {
         }
 
         const absenteismo = (faltas / efetivo) * 100;
+        const configId = `${planta}_${turno}_${setor}`;
 
         try {
+            // Passo 1: Salva o Histórico (Log)
             await addDoc(collection(db, "registros_absenteismo"), {
                 planta,
                 turno,
@@ -101,7 +132,14 @@ window.app = {
                 absenteismo_percentual: parseFloat(absenteismo.toFixed(2)),
                 usuario_id: auth.currentUser.uid
             });
-            alert("Registro salvo com sucesso!");
+
+            // Passo 2: Atualiza a Configuração do Efetivo (Atualiza o padrão) [NOVO]
+            await setDoc(doc(db, "config_efetivo", configId), {
+                efetivo_atual: efetivo,
+                ultima_atualizacao: Timestamp.now()
+            }, { merge: true });
+
+            alert("Registro salvo e efetivo atualizado!");
         } catch (e) {
             console.error("Erro ao salvar", e);
             alert("Erro ao salvar no banco de dados.");
@@ -122,7 +160,6 @@ window.app = {
 
         if (!start || !end) return;
 
-        // Consulta filtrada por data
         const q = query(
             collection(db, "registros_absenteismo"),
             where("data_registro", ">=", start),
@@ -137,7 +174,6 @@ window.app = {
 
 // --- LOGICA DE PROCESSAMENTO DE DADOS (KPIs + Gráficos) ---
 function processChartData(snapshot) {
-    // Estruturas para agregação
     let totalP3 = { efetivo: 0, faltas: 0 };
     let totalP4 = { efetivo: 0, faltas: 0 };
     let timeline = {}; 
@@ -146,7 +182,6 @@ function processChartData(snapshot) {
     snapshot.forEach(doc => {
         const d = doc.data();
         
-        // 1. Acumula Totais Gerais
         if (d.planta === "PLANTA 3") {
             totalP3.efetivo += d.efetivo;
             totalP3.faltas += d.faltas;
@@ -155,7 +190,6 @@ function processChartData(snapshot) {
             totalP4.faltas += d.faltas;
         }
 
-        // 2. Agrupa por Data (Timeline)
         if (!timeline[d.data_registro]) {
             timeline[d.data_registro] = { p3_ef: 0, p3_fa: 0, p4_ef: 0, p4_fa: 0 };
         }
@@ -167,15 +201,11 @@ function processChartData(snapshot) {
             timeline[d.data_registro].p4_fa += d.faltas;
         }
 
-        // 3. Agrupa por Setor
         if (!sectors[d.setor]) sectors[d.setor] = { efetivo: 0, faltas: 0 };
         sectors[d.setor].efetivo += d.efetivo;
         sectors[d.setor].faltas += d.faltas;
     });
 
-    // --- CÁLCULO FINAL DOS INDICADORES ---
-
-    // A. KPIs Cards
     const calcAbs = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
     
     const kpiP3 = calcAbs(totalP3.faltas, totalP3.efetivo);
@@ -188,7 +218,6 @@ function processChartData(snapshot) {
     
     document.getElementById('kpi-global').className = `kpi-value ${kpiGlobal > 5 ? 'alert' : ''}`;
 
-    // B. Preparar Dados para Chart.js
     const labels = Object.keys(timeline).sort();
     const dataP3 = labels.map(date => {
         const t = timeline[date];
@@ -214,7 +243,6 @@ function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
     if (chartEvolution) chartEvolution.destroy();
     if (chartSectors) chartSectors.destroy();
 
-    // 1. Gráfico de Evolução (Linha)
     chartEvolution = new Chart(ctxEvo, {
         type: 'line',
         data: {
@@ -227,7 +255,6 @@ function renderCharts(dates, p3Vals, p4Vals, secLabels, secVals) {
         options: { responsive: true, scales: { y: { beginAtZero: true, title: {display: true, text: '% Absenteísmo'} } } }
     });
 
-    // 2. Gráfico de Setores (Barra)
     chartSectors = new Chart(ctxSec, {
         type: 'bar',
         data: {
@@ -254,7 +281,6 @@ onAuthStateChanged(auth, (user) => {
         appContainer.style.display = 'block';
         startDataListener(); 
         
-        // Define datas iniciais padrão para o Dashboard (Mês Atual)
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
@@ -272,7 +298,6 @@ setInterval(() => {
     document.getElementById('current-datetime').innerText = now.toLocaleString('pt-BR');
 }, 1000);
 
-// Lógica da Tabela (Separada por Turnos e com Total)
 function startDataListener() {
     const q = query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc"));
     
