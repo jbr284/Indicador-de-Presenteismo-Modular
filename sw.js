@@ -1,4 +1,4 @@
-const CACHE_NAME = 'modular-absenteismo-v5'; // Versão incrementada para forçar atualização
+const CACHE_NAME = 'modular-absenteismo-v6'; // Versão incrementada para forçar atualização
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -79,3 +79,4 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
