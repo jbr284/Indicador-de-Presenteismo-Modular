@@ -23,7 +23,7 @@ const estruturaSetores = {
 
 let chartEvolution = null;
 
-// Registra plugin do Datalabels para usar no gráfico
+// Registra plugin do Datalabels
 Chart.register(ChartDataLabels);
 
 window.app = {
@@ -92,13 +92,8 @@ window.app = {
 function processChartData(snapshot) {
     let global = { ef: 0, fa: 0 };
     let plants = { "PLANTA 3": { ef:0, fa:0 }, "PLANTA 4": { ef:0, fa:0 } };
-    
-    // Matriz: Setor -> Turno
     let sectorStats = {}; 
-    
-    // Consolidado por Setor (Soma T1 + T2) para Gráfico e Cards
     let sectorTotals = {}; 
-
     let uniqueDays = new Set();
 
     snapshot.forEach(doc => {
@@ -110,14 +105,12 @@ function processChartData(snapshot) {
 
         if(plants[d.planta]) { plants[d.planta].ef += d.efetivo; plants[d.planta].fa += d.faltas; }
 
-        // Detalhamento por turno
         if(!sectorStats[d.setor]) sectorStats[d.setor] = { "1º TURNO": {ef:0, fa:0}, "2º TURNO": {ef:0, fa:0} };
         if(sectorStats[d.setor][d.turno]) {
             sectorStats[d.setor][d.turno].ef += d.efetivo;
             sectorStats[d.setor][d.turno].fa += d.faltas;
         }
 
-        // Consolidado Geral do Setor (Ignora turno para somar)
         if(!sectorTotals[d.setor]) sectorTotals[d.setor] = { ef: 0, fa: 0 };
         sectorTotals[d.setor].ef += d.efetivo;
         sectorTotals[d.setor].fa += d.faltas;
@@ -127,7 +120,6 @@ function processChartData(snapshot) {
     const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00";
     const mean = (f) => (f / daysCount).toFixed(1);
 
-    // 1. Renderizar KPIs Macro
     document.getElementById('kpi-p3').innerText = calc(plants["PLANTA 3"].fa, plants["PLANTA 3"].ef) + "%";
     document.getElementById('mean-p3').innerText = "Média: " + mean(plants["PLANTA 3"].fa);
     
@@ -140,13 +132,8 @@ function processChartData(snapshot) {
     globEl.className = `val ${parseFloat(globPct) > 5 ? 'alert-text' : ''}`;
     document.getElementById('mean-global').innerText = "Média: " + mean(global.fa);
 
-    // 2. Renderizar Detalhamento por Turno
     renderDetailedCards(sectorStats, daysCount);
-
-    // 3. Renderizar Consolidado por Setor
     renderConsolidatedCards(sectorTotals, daysCount);
-
-    // 4. Renderizar Gráfico (ACUMULADO)
     renderEvolutionChart(sectorTotals);
 }
 
@@ -202,20 +189,17 @@ function renderConsolidatedCards(sectorTotals, daysCount) {
     });
 }
 
-// NOVA FUNÇÃO: Gráfico Acumulado do Período
 function renderEvolutionChart(sectorTotals) {
     const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
 
     const sectors = Object.keys(sectorTotals).sort();
     
-    // Calcula os valores finais
     const values = sectors.map(s => {
         const t = sectorTotals[s];
         return t.ef > 0 ? parseFloat(((t.fa/t.ef)*100).toFixed(2)) : 0;
     });
 
-    // Gera cores únicas
     const backgroundColors = sectors.map(s => {
         const hash = s.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
         return `hsl(${hash % 360}, 70%, 50%)`;
@@ -224,7 +208,7 @@ function renderEvolutionChart(sectorTotals) {
     chartEvolution = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: sectors, // Setores no Eixo X
+            labels: sectors,
             datasets: [{
                 label: 'Absenteísmo Acumulado',
                 data: values,
@@ -240,7 +224,7 @@ function renderEvolutionChart(sectorTotals) {
                 x: { title: {display: true, text: 'Setores'} }
             },
             plugins: { 
-                legend: { display: false }, // Legenda desnecessária pois temos labels no eixo X
+                legend: { display: false }, 
                 title: { display: true, text: 'Absenteísmo Acumulado por Setor (Período Selecionado)' },
                 datalabels: {
                     color: '#000',
@@ -248,7 +232,6 @@ function renderEvolutionChart(sectorTotals) {
                     align: 'top',
                     offset: -4,
                     font: { weight: 'bold', size: 11 },
-                    // Formata para mostrar Nome + Valor
                     formatter: (value, context) => {
                         const label = context.chart.data.labels[context.dataIndex];
                         return value > 0 ? `${label}\n${value}%` : '';
@@ -290,3 +273,9 @@ function startRealtimeTable() {
         p4.innerHTML = (h4_1 ? `<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1 : '') + (h4_2 ? `<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2 : '') + totalRow(t4);
     });
 }
+
+// CORREÇÃO: RELÓGIO ADICIONADO AQUI
+setInterval(() => {
+    const el = document.getElementById('current-datetime');
+    if(el) el.innerText = new Date().toLocaleString('pt-BR');
+}, 1000);
