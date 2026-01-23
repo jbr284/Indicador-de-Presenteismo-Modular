@@ -85,11 +85,13 @@ window.app = {
         const start = document.getElementById('dash-start').value, end = document.getElementById('dash-end').value;
         if (!start || !end) return;
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
-        processChartData(await getDocs(q));
+        
+        // Passa as datas para processamento para usar no gráfico
+        processChartData(await getDocs(q), start, end);
     }
 };
 
-function processChartData(snapshot) {
+function processChartData(snapshot, startDate, endDate) {
     let global = { ef: 0, fa: 0 };
     let plants = { "PLANTA 3": { ef:0, fa:0 }, "PLANTA 4": { ef:0, fa:0 } };
     let sectorStats = {}; 
@@ -134,7 +136,9 @@ function processChartData(snapshot) {
 
     renderDetailedCards(sectorStats, daysCount);
     renderConsolidatedCards(sectorTotals, daysCount);
-    renderEvolutionChart(sectorTotals);
+    
+    // Passa as datas para o renderizador do gráfico
+    renderEvolutionChart(sectorTotals, startDate, endDate);
 }
 
 function renderDetailedCards(sectorStats, daysCount) {
@@ -189,7 +193,8 @@ function renderConsolidatedCards(sectorTotals, daysCount) {
     });
 }
 
-function renderEvolutionChart(sectorTotals) {
+// ATUALIZADO: Recebe datas para o rodapé
+function renderEvolutionChart(sectorTotals, startDate, endDate) {
     const ctx = document.getElementById('chart-evolution');
     if (chartEvolution) chartEvolution.destroy();
 
@@ -204,6 +209,10 @@ function renderEvolutionChart(sectorTotals) {
         const hash = s.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
         return `hsl(${hash % 360}, 70%, 50%)`;
     });
+
+    // Formata datas para PT-BR
+    const fmt = (dt) => dt ? dt.split('-').reverse().join('/') : '...';
+    const periodLabel = `Período: ${fmt(startDate)} até ${fmt(endDate)}`;
 
     chartEvolution = new Chart(ctx, {
         type: 'bar',
@@ -225,7 +234,21 @@ function renderEvolutionChart(sectorTotals) {
             },
             plugins: { 
                 legend: { display: false }, 
-                title: { display: true, text: 'Absenteísmo Acumulado por Setor (Período Selecionado)' },
+                // TÍTULO PRINCIPAL
+                title: { 
+                    display: true, 
+                    text: 'Absenteísmo Acumulado por Setor (Período Selecionado)',
+                    font: { size: 16 }
+                },
+                // NOVO: SUBTÍTULO NO RODAPÉ
+                subtitle: {
+                    display: true,
+                    text: periodLabel,
+                    position: 'bottom', // Define que aparece embaixo
+                    padding: { top: 10 },
+                    font: { size: 12, style: 'italic' },
+                    color: '#666'
+                },
                 datalabels: {
                     color: '#000',
                     anchor: 'end',
@@ -274,7 +297,6 @@ function startRealtimeTable() {
     });
 }
 
-// CORREÇÃO: RELÓGIO ADICIONADO AQUI
 setInterval(() => {
     const el = document.getElementById('current-datetime');
     if(el) el.innerText = new Date().toLocaleString('pt-BR');
