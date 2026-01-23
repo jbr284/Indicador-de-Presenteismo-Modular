@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle de Presenteísmo - Modular</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     
     <style>
         :root { --primary: #2563eb; --bg: #f3f4f6; --text: #1f2937; --white: #ffffff; }
@@ -41,34 +43,32 @@
         .total-row { background-color: #e5e7eb; font-weight: bold; border-top: 2px solid #9ca3af; }
         .turn-header { background-color: #f3f4f6; color: #4b5563; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
 
-        /* --- DASHBOARD COMPACTO (NOVO) --- */
+        /* --- DASHBOARD COMPACTO --- */
         .filter-bar { display: flex; gap: 0.5rem; align-items: end; background: #fff; padding: 0.8rem; border-radius: 6px; margin-bottom: 1rem; }
         .filter-bar .input-group { margin-bottom: 0; }
 
-        /* Títulos de Seção */
         .dash-section-title { 
             font-size: 0.85rem; font-weight: 800; color: #374151; 
             text-transform: uppercase; letter-spacing: 0.05em; 
             margin: 1.5rem 0 0.5rem 0; border-left: 4px solid var(--primary); padding-left: 0.5rem;
         }
 
-        /* Grid Compacto para KPIs */
         .compact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; }
         
-        /* Mini Cards */
         .mini-card { background: white; padding: 0.8rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); border-left: 3px solid transparent; }
         .mini-card h4 { margin: 0; font-size: 0.75rem; color: #6b7280; text-transform: uppercase; }
         .mini-card .val { font-size: 1.4rem; font-weight: bold; color: #1f2937; margin-top: 0.2rem; }
-        .mini-card .sub-val { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 0.2rem; display: block; } /* Para a média */
+        .mini-card .sub-val { font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 0.2rem; display: block; }
         
-        /* Cores de Borda para diferenciar Turnos */
-        .border-t1 { border-left-color: #3b82f6; } /* Azul para Turno 1 */
-        .border-t2 { border-left-color: #f59e0b; } /* Laranja para Turno 2 */
+        .border-t1 { border-left-color: #3b82f6; } 
+        .border-t2 { border-left-color: #f59e0b; } 
         .border-total { border-left-color: #10b981; background: #f0fdf4; } /* Verde para Totais */
+        /* Nova cor para Consolidação de Setor */
+        .border-sector { border-left-color: #8b5cf6; background: #f5f3ff; } /* Roxo */
         
         .alert-text { color: #dc2626 !important; }
 
-        .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 350px; }
+        .chart-box { background: white; padding: 1rem; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); margin-top: 1rem; height: 400px; }
     </style>
 </head>
 <body>
@@ -193,26 +193,14 @@
                 </div>
 
                 <div class="dash-section-title">Performance por Setor - 1º TURNO</div>
-                <div id="grid-t1" class="compact-grid">
-                    </div>
+                <div id="grid-t1" class="compact-grid"></div>
 
                 <div class="dash-section-title">Performance por Setor - 2º TURNO</div>
-                <div id="grid-t2" class="compact-grid">
-                    </div>
+                <div id="grid-t2" class="compact-grid"></div>
 
-                <div class="dash-section-title">Consolidado dos Turnos</div>
-                <div class="compact-grid">
-                    <div class="mini-card border-t1" style="background: #eff6ff;">
-                        <h4>Total 1º Turno</h4>
-                        <div class="val" id="total-t1">-%</div>
-                        <span class="sub-val" id="mean-t1">Média: -</span>
+                <div class="dash-section-title">Consolidado por Setor (1º + 2º Turno)</div>
+                <div id="grid-consolidado" class="compact-grid">
                     </div>
-                    <div class="mini-card border-t2" style="background: #fffbeb;">
-                        <h4>Total 2º Turno</h4>
-                        <div class="val" id="total-t2">-%</div>
-                        <span class="sub-val" id="mean-t2">Média: -</span>
-                    </div>
-                </div>
 
                 <div class="chart-box">
                     <canvas id="chart-evolution"></canvas>
