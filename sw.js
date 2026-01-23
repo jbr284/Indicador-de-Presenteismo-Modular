@@ -1,12 +1,16 @@
-const CACHE_NAME = 'modular-absenteismo-v7';
+const CACHE_NAME = 'modular-absenteismo-v8'; // Versão atualizada
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './app.js',
   './manifest.json',
+  // Se tiver os ícones, descomente abaixo
+  // './icon-192.png',
+  // './icon-512.png',
+  
+  // Bibliotecas essenciais (sem PDF)
   'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+  'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0'
 ];
 
 self.addEventListener('install', (event) => {
