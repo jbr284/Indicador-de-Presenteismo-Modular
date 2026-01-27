@@ -39,38 +39,47 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- PERFIL DE USUÁRIO (NOVO) ---
-    // 1. Carrega dados do Firestore e coloca na Sidebar
+    // --- LÓGICA DE PERFIL (COM ONBOARDING) ---
     loadUserProfile: async (uid) => {
         try {
-            const docSnap = await getDoc(doc(db, "users", uid));
+            const docRef = doc(db, "users", uid);
+            const docSnap = await getDoc(docRef);
+
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 document.getElementById('profile-name').innerText = data.name || "Usuário";
-                document.getElementById('profile-role').innerText = data.role || "Sem Cargo";
+                document.getElementById('profile-role').innerText = data.role || "Colaborador";
                 
-                // Trata foto
                 const imgEl = document.getElementById('user-avatar-img');
                 const phEl = document.getElementById('user-avatar-placeholder');
                 if (data.photoUrl) {
-                    imgEl.src = data.photoUrl;
-                    imgEl.style.display = 'block';
-                    phEl.style.display = 'none';
+                    imgEl.src = data.photoUrl; imgEl.style.display = 'block'; phEl.style.display = 'none';
                 } else {
-                    imgEl.style.display = 'none';
-                    phEl.style.display = 'flex';
+                    imgEl.style.display = 'none'; phEl.style.display = 'flex';
                 }
             } else {
-                document.getElementById('profile-name').innerText = "Configure seu Perfil";
-                document.getElementById('profile-role').innerText = "Clique para editar";
+                // PRIMEIRO ACESSO DETECTADO
+                document.getElementById('profile-name').innerText = "Novo Usuário";
+                document.getElementById('profile-role').innerText = "Pendente...";
+                
+                // Alerta de Boas-vindas
+                await Swal.fire({
+                    icon: 'info',
+                    title: 'Bem-vindo ao Modular!',
+                    text: 'Notamos que este é seu primeiro acesso. Por favor, complete seu perfil para continuar.',
+                    confirmButtonText: 'Completar Agora',
+                    allowOutsideClick: false, 
+                    allowEscapeKey: false
+                });
+                
+                // Abre modal de edição
+                app.openProfileEditor();
             }
-        } catch (e) { console.error("Erro ao carregar perfil:", e); }
+        } catch (e) { console.error("Erro perfil:", e); }
     },
 
-    // 2. Abre o Modal de Edição
     openProfileEditor: async () => {
         const uid = auth.currentUser.uid;
-        // Busca dados atuais para preencher o form
         let currentData = { name: '', role: '', phone: '', photoUrl: '' };
         try {
             const snap = await getDoc(doc(db, "users", uid));
@@ -81,14 +90,13 @@ window.app = {
             title: 'Editar Perfil',
             html: `
                 <input id="swal-name" class="swal2-input" placeholder="Nome Completo" value="${currentData.name || ''}">
-                <input id="swal-role" class="swal2-input" placeholder="Cargo (ex: Gerente Industrial)" value="${currentData.role || ''}">
-                <input id="swal-phone" class="swal2-input" placeholder="Telefone / Ramal" value="${currentData.phone || ''}">
-                <input id="swal-photo" class="swal2-input" placeholder="URL da Foto (Link)" value="${currentData.photoUrl || ''}">
-                <small style="color:#666">Dica: Para a foto, cole um link de imagem público (ex: LinkedIn, Gravatar).</small>
+                <input id="swal-role" class="swal2-input" placeholder="Cargo (ex: Analista)" value="${currentData.role || ''}">
+                <input id="swal-phone" class="swal2-input" placeholder="Telefone" value="${currentData.phone || ''}">
+                <input id="swal-photo" class="swal2-input" placeholder="Link da Foto" value="${currentData.photoUrl || ''}">
             `,
             focusConfirm: false,
             showCancelButton: true,
-            confirmButtonText: 'Salvar Perfil',
+            confirmButtonText: 'Salvar',
             preConfirm: () => {
                 return {
                     name: document.getElementById('swal-name').value,
@@ -100,17 +108,12 @@ window.app = {
         });
 
         if (formValues) {
-            try {
-                await setDoc(doc(db, "users", uid), formValues, { merge: true });
-                Toast.fire({ icon: 'success', title: 'Perfil atualizado!' });
-                app.loadUserProfile(uid); // Recarrega na hora
-            } catch (e) {
-                Swal.fire('Erro', 'Não foi possível salvar.', 'error');
-            }
+            await setDoc(doc(db, "users", uid), formValues, { merge: true });
+            Toast.fire({ icon: 'success', title: 'Perfil atualizado!' });
+            app.loadUserProfile(uid);
         }
     },
 
-    // --- NAVEGAÇÃO E LÓGICA DO APP ---
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
@@ -191,6 +194,7 @@ function processChartData(snapshot, startDate, endDate) {
     document.getElementById('mean-p3').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 3"].fa);
     document.getElementById('kpi-p4').innerText = calc(plants["PLANTA 4"].fa, plants["PLANTA 4"].ef) + "%";
     document.getElementById('mean-p4').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 4"].fa);
+    
     const globPct = calc(global.fa, global.ef);
     const elG = document.getElementById('kpi-global'); elG.innerText = globPct + "%"; elG.className = `val ${parseFloat(globPct)>5?'alert-text':''}`;
     document.getElementById('mean-global').innerHTML = `<i class="ph-bold ph-globe"></i> Média: ` + mean(global.fa);
