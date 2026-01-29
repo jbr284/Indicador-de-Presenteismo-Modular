@@ -39,53 +39,35 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- NOVA FUNÇÃO: LIMPAR BANCO DE DADOS ---
+    // --- NOVA FUNÇÃO: LIMPAR BANCO ---
     wipeData: async () => {
         const confirm = await Swal.fire({
             title: 'Cuidado! Ação Irreversível',
-            text: "Isso apagará TODOS os registros de absenteísmo lançados ou importados. Deseja continuar?",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sim, apagar tudo'
+            text: "Isso apagará TODOS os registros. Deseja continuar?",
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim, apagar tudo'
         });
 
         if (confirm.isConfirmed) {
             Swal.fire({title: 'Apagando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
-            
             try {
-                // Busca todos os documentos
                 const q = query(collection(db, "registros_absenteismo"));
                 const snapshot = await getDocs(q);
-                
-                if (snapshot.empty) {
-                    return Swal.fire('Vazio', 'Não há registros para apagar.', 'info');
-                }
+                if (snapshot.empty) return Swal.fire('Vazio', 'Não há registros.', 'info');
 
-                // Deleta em Lotes (Batch)
                 let batch = writeBatch(db);
                 let count = 0;
-
                 for (const doc of snapshot.docs) {
                     batch.delete(doc.ref);
                     count++;
-                    if (count % 400 === 0) {
-                        await batch.commit();
-                        batch = writeBatch(db);
-                    }
+                    if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
                 }
-                await batch.commit(); // Finaliza os restantes
-
-                Swal.fire('Limpo!', `${count} registros foram apagados com sucesso.`, 'success');
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Erro', 'Ocorreu um erro ao tentar limpar os dados.', 'error');
-            }
+                await batch.commit();
+                Swal.fire('Limpo!', `${count} registros apagados.`, 'success');
+            } catch (err) { console.error(err); Swal.fire('Erro', 'Falha ao limpar.', 'error'); }
         }
     },
 
-    // --- IMPORTAÇÃO EXCEL ---
+    // --- IMPORTAÇÃO EXCEL "SCANNER" (CORRIGIDA) ---
     processExcel: async (input) => {
         const file = input.files[0];
         if(!file) return;
@@ -94,57 +76,91 @@ window.app = {
         reader.onload = async (e) => {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: null });
-
-            if (!rows || rows.length === 0) return Swal.fire('Erro', 'Planilha vazia.', 'error');
-
-            let turno = "1º TURNO"; 
-            for(let i=0; i<Math.min(rows.length, 5); i++) {
-                const lineStr = JSON.stringify(rows[i]).toLowerCase();
-                if(lineStr.includes("2º turno") || lineStr.includes("2 turno")) { turno = "2º TURNO"; break; }
-            }
-
+            
             let dataBatch = [];
-            rows.forEach((row, index) => {
-                let cellData = row[0];
-                if (!cellData) return;
-                let dataFormatada = null;
-                if (cellData instanceof Date && !isNaN(cellData)) { dataFormatada = cellData.toISOString().split('T')[0]; } 
-                else if (typeof cellData === 'string' && cellData.match(/^\d{4}-\d{2}-\d{2}$/)) { dataFormatada = cellData; }
-                if (!dataFormatada) return; 
+            let turnoAtual = "1º TURNO"; // Começa assumindo 1º turno
 
-                if(isValid(row[1])) dataBatch.push(createRecord("PLANTA 3", "Fabricação", turno, dataFormatada, row[1], row[2]));
-                if(isValid(row[4])) dataBatch.push(createRecord("PLANTA 3", "Montagem Estrutural", turno, dataFormatada, row[4], row[5]));
-                if(isValid(row[7])) dataBatch.push(createRecord("PLANTA 4", "Montagem final", turno, dataFormatada, row[7], row[8]));
-                if(isValid(row[10])) dataBatch.push(createRecord("PLANTA 4", "Painéis", turno, dataFormatada, row[10], row[11]));
+            // Varre TODAS as abas da planilha
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+
+                // Varre LINHA por LINHA procurando dados e mudanças de turno
+                rows.forEach((row) => {
+                    const linhaTexto = JSON.stringify(row).toLowerCase();
+
+                    // DETECÇÃO DE MUDANÇA DE TURNO
+                    if (linhaTexto.includes("2º turno") || linhaTexto.includes("2 turno") || linhaTexto.includes("segundo turno")) {
+                        turnoAtual = "2º TURNO";
+                        return; // Pula a linha de cabeçalho
+                    }
+                    if (linhaTexto.includes("1º turno") || linhaTexto.includes("1 turno") || linhaTexto.includes("primeiro turno")) {
+                        turnoAtual = "1º TURNO";
+                        return; // Pula a linha de cabeçalho
+                    }
+
+                    // Tenta extrair a data da coluna A (índice 0)
+                    let cellData = row[0];
+                    if (!cellData) return;
+
+                    let dataFormatada = null;
+                    // Verifica se é data válida
+                    if (cellData instanceof Date && !isNaN(cellData)) {
+                        dataFormatada = cellData.toISOString().split('T')[0];
+                    } else if (typeof cellData === 'string' && cellData.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        dataFormatada = cellData;
+                    }
+
+                    // Se não tem data válida na coluna A, não é uma linha de registro
+                    if (!dataFormatada) return;
+
+                    // Mapeamento das colunas (Igual ao anterior)
+                    if(isValid(row[1])) dataBatch.push(createRecord("PLANTA 3", "Fabricação", turnoAtual, dataFormatada, row[1], row[2]));
+                    if(isValid(row[4])) dataBatch.push(createRecord("PLANTA 3", "Montagem Estrutural", turnoAtual, dataFormatada, row[4], row[5]));
+                    if(isValid(row[7])) dataBatch.push(createRecord("PLANTA 4", "Montagem final", turnoAtual, dataFormatada, row[7], row[8]));
+                    if(isValid(row[10])) dataBatch.push(createRecord("PLANTA 4", "Painéis", turnoAtual, dataFormatada, row[10], row[11]));
+                });
             });
 
-            if (dataBatch.length === 0) return Swal.fire('Aviso', 'Não encontramos dados válidos.', 'warning');
+            if (dataBatch.length === 0) return Swal.fire('Aviso', 'Nenhum dado válido encontrado. Verifique se a Coluna A possui datas.', 'warning');
+
+            // Conta quantos de cada turno para exibir no alerta
+            const t1 = dataBatch.filter(d => d.turno === "1º TURNO").length;
+            const t2 = dataBatch.filter(d => d.turno === "2º TURNO").length;
 
             const confirm = await Swal.fire({
-                title: 'Importar?', html: `<p>Registros: <b>${dataBatch.length}</b></p><p>Turno: <b>${turno}</b></p>`,
-                icon: 'info', showCancelButton: true, confirmButtonText: 'Importar'
+                title: 'Importar Dados?',
+                html: `
+                    <div style="text-align:left; font-size:0.9rem;">
+                        <p>Total de Registros: <b>${dataBatch.length}</b></p>
+                        <ul style="margin-top:5px;">
+                            <li>1º Turno: ${t1} registros</li>
+                            <li>2º Turno: ${t2} registros</li>
+                        </ul>
+                    </div>
+                `,
+                icon: 'info', showCancelButton: true, confirmButtonText: 'Confirmar Importação'
             });
 
             if (confirm.isConfirmed) {
                 let count = 0;
                 let batch = writeBatch(db);
-                Swal.fire({title: 'Enviando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+                Swal.fire({title: 'Processando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+
                 for (const rec of dataBatch) {
                     batch.set(doc(collection(db, "registros_absenteismo")), rec);
                     count++;
                     if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
                 }
                 await batch.commit();
-                Swal.fire('Sucesso!', 'Importação concluída.', 'success');
+                Swal.fire('Sucesso!', 'Dados importados com sucesso.', 'success');
                 input.value = ""; 
             }
         };
         reader.readAsArrayBuffer(file);
     },
 
-    // --- RESTO DO CÓDIGO (Igual ao anterior) ---
+    // --- PERFIL ---
     loadUserProfile: async (uid) => {
         try {
             const docRef = doc(db, "users", uid);
