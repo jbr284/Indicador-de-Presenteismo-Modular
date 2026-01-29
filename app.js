@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, Timestamp, where, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -39,158 +39,79 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- NOVA FUNÇÃO: LIMPAR BANCO ---
-    wipeData: async () => {
-        const confirm = await Swal.fire({
-            title: 'Cuidado! Ação Irreversível',
-            text: "Isso apagará TODOS os registros. Deseja continuar?",
-            icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim, apagar tudo'
-        });
-
-        if (confirm.isConfirmed) {
-            Swal.fire({title: 'Apagando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
-            try {
-                const q = query(collection(db, "registros_absenteismo"));
-                const snapshot = await getDocs(q);
-                if (snapshot.empty) return Swal.fire('Vazio', 'Não há registros.', 'info');
-
-                let batch = writeBatch(db);
-                let count = 0;
-                for (const doc of snapshot.docs) {
-                    batch.delete(doc.ref);
-                    count++;
-                    if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
-                }
-                await batch.commit();
-                Swal.fire('Limpo!', `${count} registros apagados.`, 'success');
-            } catch (err) { console.error(err); Swal.fire('Erro', 'Falha ao limpar.', 'error'); }
-        }
-    },
-
-    // --- IMPORTAÇÃO EXCEL "SCANNER" (CORRIGIDA) ---
-    processExcel: async (input) => {
-        const file = input.files[0];
-        if(!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-            
-            let dataBatch = [];
-            let turnoAtual = "1º TURNO"; // Começa assumindo 1º turno
-
-            // Varre TODAS as abas da planilha
-            workbook.SheetNames.forEach(sheetName => {
-                const sheet = workbook.Sheets[sheetName];
-                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
-
-                // Varre LINHA por LINHA procurando dados e mudanças de turno
-                rows.forEach((row) => {
-                    const linhaTexto = JSON.stringify(row).toLowerCase();
-
-                    // DETECÇÃO DE MUDANÇA DE TURNO
-                    if (linhaTexto.includes("2º turno") || linhaTexto.includes("2 turno") || linhaTexto.includes("segundo turno")) {
-                        turnoAtual = "2º TURNO";
-                        return; // Pula a linha de cabeçalho
-                    }
-                    if (linhaTexto.includes("1º turno") || linhaTexto.includes("1 turno") || linhaTexto.includes("primeiro turno")) {
-                        turnoAtual = "1º TURNO";
-                        return; // Pula a linha de cabeçalho
-                    }
-
-                    // Tenta extrair a data da coluna A (índice 0)
-                    let cellData = row[0];
-                    if (!cellData) return;
-
-                    let dataFormatada = null;
-                    // Verifica se é data válida
-                    if (cellData instanceof Date && !isNaN(cellData)) {
-                        dataFormatada = cellData.toISOString().split('T')[0];
-                    } else if (typeof cellData === 'string' && cellData.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        dataFormatada = cellData;
-                    }
-
-                    // Se não tem data válida na coluna A, não é uma linha de registro
-                    if (!dataFormatada) return;
-
-                    // Mapeamento das colunas (Igual ao anterior)
-                    if(isValid(row[1])) dataBatch.push(createRecord("PLANTA 3", "Fabricação", turnoAtual, dataFormatada, row[1], row[2]));
-                    if(isValid(row[4])) dataBatch.push(createRecord("PLANTA 3", "Montagem Estrutural", turnoAtual, dataFormatada, row[4], row[5]));
-                    if(isValid(row[7])) dataBatch.push(createRecord("PLANTA 4", "Montagem final", turnoAtual, dataFormatada, row[7], row[8]));
-                    if(isValid(row[10])) dataBatch.push(createRecord("PLANTA 4", "Painéis", turnoAtual, dataFormatada, row[10], row[11]));
-                });
-            });
-
-            if (dataBatch.length === 0) return Swal.fire('Aviso', 'Nenhum dado válido encontrado. Verifique se a Coluna A possui datas.', 'warning');
-
-            // Conta quantos de cada turno para exibir no alerta
-            const t1 = dataBatch.filter(d => d.turno === "1º TURNO").length;
-            const t2 = dataBatch.filter(d => d.turno === "2º TURNO").length;
-
-            const confirm = await Swal.fire({
-                title: 'Importar Dados?',
-                html: `
-                    <div style="text-align:left; font-size:0.9rem;">
-                        <p>Total de Registros: <b>${dataBatch.length}</b></p>
-                        <ul style="margin-top:5px;">
-                            <li>1º Turno: ${t1} registros</li>
-                            <li>2º Turno: ${t2} registros</li>
-                        </ul>
-                    </div>
-                `,
-                icon: 'info', showCancelButton: true, confirmButtonText: 'Confirmar Importação'
-            });
-
-            if (confirm.isConfirmed) {
-                let count = 0;
-                let batch = writeBatch(db);
-                Swal.fire({title: 'Processando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
-
-                for (const rec of dataBatch) {
-                    batch.set(doc(collection(db, "registros_absenteismo")), rec);
-                    count++;
-                    if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
-                }
-                await batch.commit();
-                Swal.fire('Sucesso!', 'Dados importados com sucesso.', 'success');
-                input.value = ""; 
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    },
-
-    // --- PERFIL ---
+    // --- LÓGICA DE PERFIL (COM ONBOARDING) ---
     loadUserProfile: async (uid) => {
         try {
             const docRef = doc(db, "users", uid);
             const docSnap = await getDoc(docRef);
+
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 document.getElementById('profile-name').innerText = data.name || "Usuário";
                 document.getElementById('profile-role').innerText = data.role || "Colaborador";
-                const img = document.getElementById('user-avatar-img'), ph = document.getElementById('user-avatar-placeholder');
-                if(data.photoUrl){ img.src=data.photoUrl; img.style.display='block'; ph.style.display='none'; }
-                else { img.style.display='none'; ph.style.display='flex'; }
+                
+                const imgEl = document.getElementById('user-avatar-img');
+                const phEl = document.getElementById('user-avatar-placeholder');
+                if (data.photoUrl) {
+                    imgEl.src = data.photoUrl; imgEl.style.display = 'block'; phEl.style.display = 'none';
+                } else {
+                    imgEl.style.display = 'none'; phEl.style.display = 'flex';
+                }
             } else {
+                // PRIMEIRO ACESSO DETECTADO
                 document.getElementById('profile-name').innerText = "Novo Usuário";
                 document.getElementById('profile-role').innerText = "Pendente...";
-                await Swal.fire({ icon:'info', title:'Bem-vindo!', text:'Complete seu perfil.', confirmButtonText:'Ok' });
+                
+                // Alerta de Boas-vindas
+                await Swal.fire({
+                    icon: 'info',
+                    title: 'Bem-vindo ao Modular!',
+                    text: 'Notamos que este é seu primeiro acesso. Por favor, complete seu perfil para continuar.',
+                    confirmButtonText: 'Completar Agora',
+                    allowOutsideClick: false, 
+                    allowEscapeKey: false
+                });
+                
+                // Abre modal de edição
                 app.openProfileEditor();
             }
-        } catch(e){}
+        } catch (e) { console.error("Erro perfil:", e); }
     },
 
     openProfileEditor: async () => {
         const uid = auth.currentUser.uid;
-        let d = {name:'', role:'', phone:'', photoUrl:''};
-        try { const s = await getDoc(doc(db,"users",uid)); if(s.exists()) d=s.data(); } catch(e){}
-        const {value:v} = await Swal.fire({
-            title:'Editar Perfil', html:
-            `<input id="sw-n" class="swal2-input" placeholder="Nome" value="${d.name||''}"><input id="sw-r" class="swal2-input" placeholder="Cargo" value="${d.role||''}"><input id="sw-p" class="swal2-input" placeholder="Foto URL" value="${d.photoUrl||''}">`,
-            preConfirm:()=>{ return {name:document.getElementById('sw-n').value, role:document.getElementById('sw-r').value, photoUrl:document.getElementById('sw-p').value} }
+        let currentData = { name: '', role: '', phone: '', photoUrl: '' };
+        try {
+            const snap = await getDoc(doc(db, "users", uid));
+            if (snap.exists()) currentData = snap.data();
+        } catch(e){}
+
+        const { value: formValues } = await Swal.fire({
+            title: 'Editar Perfil',
+            html: `
+                <input id="swal-name" class="swal2-input" placeholder="Nome Completo" value="${currentData.name || ''}">
+                <input id="swal-role" class="swal2-input" placeholder="Cargo (ex: Analista)" value="${currentData.role || ''}">
+                <input id="swal-phone" class="swal2-input" placeholder="Telefone" value="${currentData.phone || ''}">
+                <input id="swal-photo" class="swal2-input" placeholder="Link da Foto" value="${currentData.photoUrl || ''}">
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Salvar',
+            preConfirm: () => {
+                return {
+                    name: document.getElementById('swal-name').value,
+                    role: document.getElementById('swal-role').value,
+                    phone: document.getElementById('swal-phone').value,
+                    photoUrl: document.getElementById('swal-photo').value
+                }
+            }
         });
-        if(v) { await setDoc(doc(db,"users",uid),v,{merge:true}); Toast.fire({icon:'success',title:'Perfil salvo'}); app.loadUserProfile(uid); }
+
+        if (formValues) {
+            await setDoc(doc(db, "users", uid), formValues, { merge: true });
+            Toast.fire({ icon: 'success', title: 'Perfil atualizado!' });
+            app.loadUserProfile(uid);
+        }
     },
 
     switchTab: (tabId) => {
@@ -251,12 +172,6 @@ window.app = {
     }
 };
 
-function isValid(val) { const n = Number(val); return !isNaN(n) && n > 0; }
-function createRecord(planta, setor, turno, data, efRaw, faRaw) {
-    const ef = Number(efRaw), fa = Number(faRaw || 0);
-    return { planta, setor, turno, data_registro: data, efetivo: ef, faltas: fa, absenteismo_percentual: parseFloat(((fa / ef) * 100).toFixed(2)), timestamp: Timestamp.now(), usuario_id: auth.currentUser.uid, origem: 'excel' };
-}
-
 function processChartData(snapshot, startDate, endDate) {
     let global = { ef: 0, fa: 0 };
     let plants = { "PLANTA 3": { ef:0, fa:0 }, "PLANTA 4": { ef:0, fa:0 } };
@@ -279,6 +194,7 @@ function processChartData(snapshot, startDate, endDate) {
     document.getElementById('mean-p3').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 3"].fa);
     document.getElementById('kpi-p4').innerText = calc(plants["PLANTA 4"].fa, plants["PLANTA 4"].ef) + "%";
     document.getElementById('mean-p4').innerHTML = `<i class="ph-bold ph-trend-up"></i> Média: ` + mean(plants["PLANTA 4"].fa);
+    
     const globPct = calc(global.fa, global.ef);
     const elG = document.getElementById('kpi-global'); elG.innerText = globPct + "%"; elG.className = `val ${parseFloat(globPct)>5?'alert-text':''}`;
     document.getElementById('mean-global').innerHTML = `<i class="ph-bold ph-globe"></i> Média: ` + mean(global.fa);
@@ -325,7 +241,9 @@ onAuthStateChanged(auth, u => {
     document.getElementById('auth-overlay').style.display = u ? 'none' : 'flex';
     document.getElementById('app-container').style.display = u ? 'flex' : 'none';
     if(u) {
+        // Carrega o Perfil
         app.loadUserProfile(u.uid);
+        
         onSnapshot(query(collection(db, "registros_absenteismo"), orderBy("data_registro", "desc")), snap => {
             const p3 = document.querySelector('#table-p3 tbody'), p4 = document.querySelector('#table-p4 tbody');
             let h3_1='', h3_2='', h4_1='', h4_2='', t3={e:0,f:0}, t4={e:0,f:0};
