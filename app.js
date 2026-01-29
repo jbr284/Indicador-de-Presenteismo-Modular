@@ -39,7 +39,53 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- IMPORTAÇÃO EXCEL CUSTOMIZADA ---
+    // --- NOVA FUNÇÃO: LIMPAR BANCO DE DADOS ---
+    wipeData: async () => {
+        const confirm = await Swal.fire({
+            title: 'Cuidado! Ação Irreversível',
+            text: "Isso apagará TODOS os registros de absenteísmo lançados ou importados. Deseja continuar?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sim, apagar tudo'
+        });
+
+        if (confirm.isConfirmed) {
+            Swal.fire({title: 'Apagando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+            
+            try {
+                // Busca todos os documentos
+                const q = query(collection(db, "registros_absenteismo"));
+                const snapshot = await getDocs(q);
+                
+                if (snapshot.empty) {
+                    return Swal.fire('Vazio', 'Não há registros para apagar.', 'info');
+                }
+
+                // Deleta em Lotes (Batch)
+                let batch = writeBatch(db);
+                let count = 0;
+
+                for (const doc of snapshot.docs) {
+                    batch.delete(doc.ref);
+                    count++;
+                    if (count % 400 === 0) {
+                        await batch.commit();
+                        batch = writeBatch(db);
+                    }
+                }
+                await batch.commit(); // Finaliza os restantes
+
+                Swal.fire('Limpo!', `${count} registros foram apagados com sucesso.`, 'success');
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Erro', 'Ocorreu um erro ao tentar limpar os dados.', 'error');
+            }
+        }
+    },
+
+    // --- IMPORTAÇÃO EXCEL ---
     processExcel: async (input) => {
         const file = input.files[0];
         if(!file) return;
@@ -49,81 +95,56 @@ window.app = {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, {type: 'array', cellDates: true});
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            
-            // Leitura como Matriz (Array de Arrays) para manusear o layout fixo
-            const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd' });
+            const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: null });
 
-            if (rows.length < 4) { // Precisa ter pelo menos cabeçalhos e 1 linha
-                return Swal.fire('Erro', 'Planilha vazia ou formato irreconhecível.', 'error');
+            if (!rows || rows.length === 0) return Swal.fire('Erro', 'Planilha vazia.', 'error');
+
+            let turno = "1º TURNO"; 
+            for(let i=0; i<Math.min(rows.length, 5); i++) {
+                const lineStr = JSON.stringify(rows[i]).toLowerCase();
+                if(lineStr.includes("2º turno") || lineStr.includes("2 turno")) { turno = "2º TURNO"; break; }
             }
 
-            // 1. Detecta Turno na célula A1 (Linha 0, Col 0)
-            let turno = "1º TURNO"; // Padrão
-            const cellA1 = rows[0][0] ? String(rows[0][0]).toLowerCase() : "";
-            if (cellA1.includes("2")) turno = "2º TURNO";
-
-            // 2. Extração dos Dados
             let dataBatch = [];
-            // Dados começam na linha de índice 3 (A quarta linha visual do Excel)
-            for (let i = 3; i < rows.length; i++) {
-                const row = rows[i];
-                const dataRaw = row[0]; // Coluna A = Data
+            rows.forEach((row, index) => {
+                let cellData = row[0];
+                if (!cellData) return;
+                let dataFormatada = null;
+                if (cellData instanceof Date && !isNaN(cellData)) { dataFormatada = cellData.toISOString().split('T')[0]; } 
+                else if (typeof cellData === 'string' && cellData.match(/^\d{4}-\d{2}-\d{2}$/)) { dataFormatada = cellData; }
+                if (!dataFormatada) return; 
 
-                if (!dataRaw) continue; // Pula linha vazia
+                if(isValid(row[1])) dataBatch.push(createRecord("PLANTA 3", "Fabricação", turno, dataFormatada, row[1], row[2]));
+                if(isValid(row[4])) dataBatch.push(createRecord("PLANTA 3", "Montagem Estrutural", turno, dataFormatada, row[4], row[5]));
+                if(isValid(row[7])) dataBatch.push(createRecord("PLANTA 4", "Montagem final", turno, dataFormatada, row[7], row[8]));
+                if(isValid(row[10])) dataBatch.push(createRecord("PLANTA 4", "Painéis", turno, dataFormatada, row[10], row[11]));
+            });
 
-                // Tratamento de Data
-                let dataRegistro = dataRaw; 
-                // Se vier como data, formata. Se for texto, tenta manter.
-                if (dataRaw instanceof Date) dataRegistro = dataRaw.toISOString().split('T')[0];
+            if (dataBatch.length === 0) return Swal.fire('Aviso', 'Não encontramos dados válidos.', 'warning');
 
-                // Mapeamento Fixo das Colunas da sua Planilha:
-                // Fabricação (B, C) -> Índices 1, 2 | Planta 3
-                dataBatch.push(createRecord("PLANTA 3", "Fabricação", turno, dataRegistro, row[1], row[2]));
-
-                // Estrutural (E, F) -> Índices 4, 5 | Planta 3
-                dataBatch.push(createRecord("PLANTA 3", "Montagem Estrutural", turno, dataRegistro, row[4], row[5]));
-
-                // Montagem (H, I) -> Índices 7, 8 | Planta 4 (Montagem final)
-                dataBatch.push(createRecord("PLANTA 4", "Montagem final", turno, dataRegistro, row[7], row[8]));
-
-                // Paineis (K, L) -> Índices 10, 11 | Planta 4
-                dataBatch.push(createRecord("PLANTA 4", "Painéis", turno, dataRegistro, row[10], row[11]));
-            }
-
-            // Remove entradas inválidas (sem efetivo)
-            const validRecords = dataBatch.filter(r => r !== null);
-
-            if (validRecords.length === 0) return Swal.fire('Aviso', 'Nenhum dado válido encontrado.', 'info');
-
-            // Confirmação
             const confirm = await Swal.fire({
-                title: 'Confirmar Importação',
-                text: `Detectamos ${validRecords.length} registros para o ${turno}. Deseja enviar para o banco de dados?`,
-                icon: 'question', showCancelButton: true, confirmButtonText: 'Sim, importar'
+                title: 'Importar?', html: `<p>Registros: <b>${dataBatch.length}</b></p><p>Turno: <b>${turno}</b></p>`,
+                icon: 'info', showCancelButton: true, confirmButtonText: 'Importar'
             });
 
             if (confirm.isConfirmed) {
-                // Batch Write (Lote)
                 let count = 0;
                 let batch = writeBatch(db);
-                
                 Swal.fire({title: 'Enviando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
-
-                for (const rec of validRecords) {
-                    const docRef = doc(collection(db, "registros_absenteismo"));
-                    batch.set(docRef, rec);
+                for (const rec of dataBatch) {
+                    batch.set(doc(collection(db, "registros_absenteismo")), rec);
                     count++;
                     if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); }
                 }
                 await batch.commit();
-                
-                Swal.fire('Sucesso!', `${count} registros importados!`, 'success');
-                input.value = ""; // Limpa input
+                Swal.fire('Sucesso!', 'Importação concluída.', 'success');
+                input.value = ""; 
             }
         };
         reader.readAsArrayBuffer(file);
     },
 
+    // --- RESTO DO CÓDIGO (Igual ao anterior) ---
     loadUserProfile: async (uid) => {
         try {
             const docRef = doc(db, "users", uid);
@@ -214,28 +235,10 @@ window.app = {
     }
 };
 
-// Helper para criar objeto de registro
-function createRecord(planta, setor, turno, data, efetivoRaw, faltasRaw) {
-    const ef = Number(efetivoRaw);
-    const fa = Number(faltasRaw || 0); // Se vazio, assume 0 faltas
-    
-    // Se efetivo não for número válido ou for 0, ignora (provavelmente célula vazia)
-    if (isNaN(ef) || ef <= 0) return null;
-
-    const abs = parseFloat(((fa / ef) * 100).toFixed(2));
-
-    return {
-        planta: planta,
-        setor: setor,
-        turno: turno,
-        data_registro: data,
-        efetivo: ef,
-        faltas: fa,
-        absenteismo_percentual: abs,
-        timestamp: Timestamp.now(),
-        usuario_id: auth.currentUser.uid,
-        origem: 'excel_import'
-    };
+function isValid(val) { const n = Number(val); return !isNaN(n) && n > 0; }
+function createRecord(planta, setor, turno, data, efRaw, faRaw) {
+    const ef = Number(efRaw), fa = Number(faRaw || 0);
+    return { planta, setor, turno, data_registro: data, efetivo: ef, faltas: fa, absenteismo_percentual: parseFloat(((fa / ef) * 100).toFixed(2)), timestamp: Timestamp.now(), usuario_id: auth.currentUser.uid, origem: 'excel' };
 }
 
 function processChartData(snapshot, startDate, endDate) {
