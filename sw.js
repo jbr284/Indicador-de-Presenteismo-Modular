@@ -1,10 +1,9 @@
-const CACHE_NAME = 'modular-absenteismo-v13';
+const CACHE_NAME = 'modular-absenteismo-v15';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './app.js',
   './manifest.json',
-  // './icon-192.png',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11',
