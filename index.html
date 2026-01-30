@@ -15,7 +15,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
         :root { --primary: #2563eb; --primary-dark: #1d4ed8; --sidebar-bg: #0f172a; --sidebar-text: #94a3b8; --bg: #f1f5f9; --card-bg: #ffffff; --text-main: #334155; --text-light: #64748b; --border: #e2e8f0; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
@@ -25,7 +24,8 @@
         .auth-box h2 { color: var(--sidebar-bg); margin-bottom: 1.5rem; font-weight: 700; }
         #app-container { display: flex; width: 100%; height: 100%; }
         aside { width: 260px; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; flex-shrink: 0; transition: transform 0.3s; }
-        .brand { color: white; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; padding-left: 0.5rem; }
+        /* LOGO CLICÁVEL (SEGredo) */
+        .brand { color: white; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; padding-left: 0.5rem; cursor: pointer; user-select: none; }
         .brand i { color: var(--primary); font-size: 1.5rem; }
         nav button { background: transparent; border: none; color: var(--sidebar-text); width: 100%; padding: 0.85rem 1rem; text-align: left; cursor: pointer; border-radius: 8px; font-family: inherit; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; margin-bottom: 0.5rem; }
         nav button:hover { background: rgba(255,255,255,0.05); color: white; }
@@ -57,14 +57,10 @@
         .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.6rem 1.2rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
         .btn-primary { background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
         .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
-        .btn-success { background: #10b981; color: white; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2); }
-        .btn-success:hover { background: #059669; transform: translateY(-1px); }
         .btn-danger { background: var(--danger); color: white; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2); }
         .btn-danger:hover { filter: brightness(0.9); transform: translateY(-1px); }
-        /* Botão Editar */
         .btn-edit { background: var(--warning); color: white; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
         .btn-edit:hover { filter: brightness(0.9); transform: translateY(-1px); }
-
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th { background: #f8fafc; text-align: left; padding: 0.8rem 1rem; font-weight: 600; color: var(--text-light); border-bottom: 1px solid var(--border); }
@@ -87,7 +83,8 @@
     <div id="auth-overlay"><div class="auth-box"><div style="font-size: 3rem; color: #3b82f6; margin-bottom: 1rem;"><i class="ph-fill ph-shield-check"></i></div><h2>Acesso Restrito</h2><div class="form-grid" style="grid-template-columns: 1fr; gap: 1rem; text-align: left;"><div class="input-group"><label>Email Corporativo</label><input type="email" id="login-email" placeholder="nome@modular.com"></div><div class="input-group"><label>Senha</label><input type="password" id="login-pass"></div><button class="btn btn-primary" onclick="app.login()" style="width: 100%; margin-top: 1rem;">ACESSAR SISTEMA</button></div><p id="auth-error" style="color: #ef4444; font-size: 0.85rem; margin-top: 1rem; min-height: 20px;"></p></div></div>
     <div id="app-container" style="display: none;">
         <aside>
-            <div class="brand"><i class="ph-fill ph-squares-four"></i> MODULAR</div>
+            <div class="brand" onclick="app.secretDebug()"><i class="ph-fill ph-squares-four"></i> MODULAR</div>
+            
             <nav><button class="active" onclick="app.switchTab('tab-lancamento')"><i class="ph ph-note-pencil"></i> <span>Lançamentos</span></button><button onclick="app.switchTab('tab-indicadores')"><i class="ph ph-chart-line-up"></i> <span>Indicadores</span></button></nav>
             <div class="user-profile" onclick="app.openProfileEditor()" title="Clique para editar seu perfil"><div class="avatar-container"><img id="user-avatar-img" src="" style="display: none;"><div id="user-avatar-placeholder" class="avatar-placeholder"><i class="ph ph-user"></i></div></div><div class="user-info"><div class="user-name" id="profile-name">Carregando...</div><div class="user-role" id="profile-role">...</div></div><button class="btn-logout" onclick="event.stopPropagation(); app.logout()" title="Sair"><i class="ph ph-sign-out"></i></button></div>
         </aside>
@@ -96,11 +93,8 @@
             <main>
                 <section id="tab-lancamento" class="view-section active">
                     <div class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.8rem; gap:10px; flex-wrap:wrap;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.8rem;">
                             <h3 style="border:none; margin:0; padding:0; white-space:nowrap;"><i class="ph ph-file-plus"></i> Novo Registro</h3>
-                            <div style="display:flex; gap:10px;">
-                                <button class="btn btn-danger" onclick="app.wipeData()" style="font-size:0.85rem; padding:0.4rem 0.8rem;"><i class="ph-bold ph-trash"></i> Limpar Tudo</button>
-                            </div>
                         </div>
                         <div class="form-grid">
                             <div class="input-group"><label>Planta</label><select id="inp-planta" onchange="app.updateSectors(); app.loadHeadcount()"><option value="">Selecione...</option><option value="PLANTA 3">PLANTA 3</option><option value="PLANTA 4">PLANTA 4</option></select></div>
@@ -126,7 +120,6 @@
                             <div class="input-group"><label>Data Inicial</label><input type="date" id="dash-start"></div>
                             <div class="input-group"><label>Data Final</label><input type="date" id="dash-end"></div>
                             <button class="btn btn-primary" onclick="app.updateDashboard()"><i class="ph-bold ph-funnel"></i> Filtrar Dados</button>
-                            <button class="btn btn-success" onclick="app.exportData()"><i class="ph-bold ph-microsoft-excel-logo"></i> Exportar Excel</button>
                         </div>
                     </div>
                     <div class="dash-section-title">Visão Geral (Plantas)</div>
