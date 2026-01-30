@@ -22,7 +22,7 @@ const estruturaSetores = {
 
 let chartEvolution = null;
 let editingId = null;
-let secretCount = 0; // Contador do segredo
+let secretCount = 0;
 let secretTimer = null;
 
 Chart.register(ChartDataLabels);
@@ -43,30 +43,23 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- FUNÇÕES DE SEGURANÇA ---
+    // --- SEGURANÇA ---
     secretDebug: () => {
         secretCount++;
         clearTimeout(secretTimer);
-        secretTimer = setTimeout(() => { secretCount = 0; }, 1000); // 1 segundo para resetar
-        
+        secretTimer = setTimeout(() => { secretCount = 0; }, 1000);
         if (secretCount === 5) {
-            app.wipeData(); // Aciona a limpeza
+            app.wipeData();
             secretCount = 0;
         }
     },
 
     wipeData: async () => {
-        // PERGUNTA DE SEGURANÇA DUPLA COM SENHA
         const { value: text } = await Swal.fire({
             title: 'ACESSO RESTRITO',
             text: "Para limpar TODA a base de dados, digite 'DELETAR' abaixo. Isso é irreversível.",
-            input: 'text',
-            icon: 'warning',
-            inputPlaceholder: 'DELETAR',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'CONFIRMAR LIMPEZA'
+            input: 'text', icon: 'warning', inputPlaceholder: 'DELETAR',
+            showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'CONFIRMAR LIMPEZA'
         });
 
         if (text === 'DELETAR') {
@@ -82,7 +75,7 @@ window.app = {
                 Swal.fire('Limpo!', `${count} registros apagados.`, 'success');
             } catch (err) { Swal.fire('Erro', 'Falha ao limpar.', 'error'); }
         } else if (text) {
-            Swal.fire('Erro', 'Palavra de confirmação incorreta.', 'error');
+            Swal.fire('Erro', 'Palavra incorreta.', 'error');
         }
     },
 
@@ -100,6 +93,7 @@ window.app = {
         try {
             const abs = parseFloat(((fa/ef)*100).toFixed(2));
 
+            // ATUALIZAR
             if (editingId) {
                 await updateDoc(doc(db, "registros_absenteismo", editingId), { planta: p, turno: t, setor: s, data_registro: d, efetivo: ef, faltas: fa, absenteismo_percentual: abs, updated_at: Timestamp.now() });
                 await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
@@ -108,25 +102,25 @@ window.app = {
                 return;
             }
 
-            // CHECK DUPLICIDADE
+            // CRIAR NOVO (CHECK DE DUPLICIDADE)
             const q = query(collection(db, "registros_absenteismo"), where("data_registro", "==", d), where("planta", "==", p), where("turno", "==", t), where("setor", "==", s));
             const dupCheck = await getDocs(q);
 
             if (!dupCheck.empty) {
+                // ALERTA CORRIGIDO: APENAS BOTÃO CANCELAR
                 return Swal.fire({
                     icon: 'warning',
                     title: 'Registro Duplicado!',
                     html: `<p>Você está duplicando um registro para <b>${s}</b> na data <b>${d.split('-').reverse().join('/')}</b>.</p>
                            <p style="font-size:0.9rem; color:#d33;">Isso gera falha no cálculo.</p>
                            <p>Use o botão de <b>edição</b> na tabela se precisar alterar.</p>`,
-                    showCancelButton: true,
-                    cancelButtonText: 'Cancelar Registro', // BOTÃO PEDIDO
-                    confirmButtonText: 'Entendido',
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33'
+                    confirmButtonText: 'Cancelar Registro', // Agora este é o único botão
+                    confirmButtonColor: '#d33', // Vermelho para indicar "Pare"
+                    showCancelButton: false // Remove o botão secundário
                 });
             }
 
+            // SALVAR
             await addDoc(collection(db, "registros_absenteismo"), { planta: p, turno: t, setor: s, data_registro: d, timestamp: Timestamp.now(), efetivo: ef, faltas: fa, absenteismo_percentual: abs, usuario_id: auth.currentUser.uid });
             await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
             Toast.fire({ icon: 'success', title: 'Salvo!' });
@@ -164,7 +158,7 @@ window.app = {
         });
     },
 
-    // --- RESTO DO SISTEMA (PERFIL, DASHBOARD) ---
+    // --- PERFIL & UI ---
     loadUserProfile: async (uid) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
