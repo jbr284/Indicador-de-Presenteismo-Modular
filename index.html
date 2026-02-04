@@ -61,8 +61,7 @@
         .btn-danger:hover { filter: brightness(0.9); transform: translateY(-1px); }
         .btn-edit { background: var(--warning); color: white; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
         .btn-edit:hover { filter: brightness(0.9); transform: translateY(-1px); }
-        .btn-print { background: #334155; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .btn-print:hover { background: #1e293b; transform: translateY(-1px); }
+        
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th { background: #f8fafc; text-align: left; padding: 0.8rem 1rem; font-weight: 600; color: var(--text-light); border-bottom: 1px solid var(--border); }
@@ -76,58 +75,45 @@
         .mini-card .val { font-size: 1.75rem; font-weight: 700; color: var(--text-main); margin-top: 0.5rem; }
         .mini-card .sub-val { font-size: 0.8rem; color: var(--success); font-weight: 600; margin-top: 0.2rem; display: flex; align-items: center; gap: 4px; }
         .border-t1 { border-left-color: #3b82f6; } .border-t2 { border-left-color: #f59e0b; } .border-total { border-left-color: var(--success); } .border-sector { border-left-color: #8b5cf6; } .alert-text { color: var(--danger) !important; }
+        
         .chart-box { height: 400px; padding: 1rem; position: relative; }
         
-        /* Imagem oculta na tela, usada apenas na impressão */
+        /* IMAGEM DO GRÁFICO (Oculta na tela, Visível na impressão) */
         #chart-print-img { display: none; width: 100%; height: auto; max-height: 400px; object-fit: contain; }
 
-        /* --- CSS DE IMPRESSÃO OTIMIZADO --- */
+        /* --- O SEGREDO DA IMPRESSÃO (CSS PRINT) --- */
         @media print {
             @page { size: A4 landscape; margin: 5mm; }
             body { background: white; color: black; height: auto; overflow: visible; font-size: 11pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            
-            /* Esconde elementos desnecessários */
             aside, #auth-overlay, .btn, .input-group:has(button) { display: none !important; }
             #app-container, .content-wrapper, main { width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; overflow: visible !important; }
-            
-            /* Ajustes do Cabeçalho */
             header { border: none; padding: 0; margin-bottom: 20px; }
             header h1 { font-size: 22pt; text-align: center; color: #000; }
             .header-date { display: block; text-align: center; background: none; color: #666; margin-top: 5px; }
-            
-            /* Mostra apenas a aba de indicadores */
             #tab-lancamento { display: none !important; }
             #tab-indicadores { display: block !important; }
-            #tab-indicadores .card:first-child { display: none !important; } /* Esconde filtro de data */
-
-            /* Títulos */
+            #tab-indicadores .card:first-child { display: none !important; }
             .dash-section-title { font-size: 14pt; color: #000; border-bottom: 2px solid #000; margin-top: 20px; margin-bottom: 10px; page-break-after: avoid; }
-            
-            /* Grid dos KPIs */
             .compact-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 15px !important; page-break-inside: avoid; }
             #grid-t1, #grid-t2, #grid-consolidado { grid-template-columns: repeat(4, 1fr) !important; }
-            
             .mini-card { border: 1px solid #000; box-shadow: none; break-inside: avoid; }
             .mini-card h4 { color: #000; font-size: 10pt; }
             .mini-card .val { color: #000; font-size: 16pt; }
-
-            /* A MÁGICA DO GRÁFICO (CORREÇÃO DE TAMANHO) */
             .chart-box {
                 margin-top: 20px;
-                height: auto !important; /* Libera a altura */
-                width: 100% !important;  /* Força largura total */
+                height: auto !important;
+                width: 100% !important;
                 border: 1px solid #ccc;
                 break-inside: avoid;
                 padding: 5px !important;
             }
-            #chart-evolution { display: none !important; } /* Oculta Canvas */
-            
+            #chart-evolution { display: none !important; }
             #chart-print-img { 
-                display: block !important; /* Mostra Imagem */
-                width: 100% !important;    /* Ocupa 100% da largura da folha */
+                display: block !important;
+                width: 100% !important;
                 max-width: 100% !important;
-                height: auto !important;   /* Mantém a proporção correta */
-                max-height: none !important; /* Remove qualquer trava de altura */
+                height: auto !important;
+                max-height: none !important;
                 object-fit: contain;
             }
         }
@@ -175,7 +161,6 @@
                             <div class="input-group"><label>Data Inicial</label><input type="date" id="dash-start"></div>
                             <div class="input-group"><label>Data Final</label><input type="date" id="dash-end"></div>
                             <button class="btn btn-primary" onclick="app.updateDashboard()"><i class="ph-bold ph-funnel"></i> Filtrar Dados</button>
-                            <button class="btn btn-print" onclick="app.printDashboard()"><i class="ph-bold ph-printer"></i> Imprimir</button>
                         </div>
                     </div>
                     <div class="dash-section-title">Visão Geral (Plantas)</div>
