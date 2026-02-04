@@ -1,4 +1,4 @@
-const CACHE_NAME = 'modular-absenteismo-v21'; // Versão Atualizada
+const CACHE_NAME = 'modular-absenteismo-v22';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
