@@ -79,26 +79,23 @@
         .border-t1 { border-left-color: #3b82f6; } .border-t2 { border-left-color: #f59e0b; } .border-total { border-left-color: var(--success); } .border-sector { border-left-color: #8b5cf6; } .alert-text { color: var(--danger) !important; }
         .chart-box { height: 400px; padding: 1rem; }
 
-        /* --- ESTILO DO RELATÓRIO (PDF) CORRIGIDO --- */
+        /* --- ESTILO DO RELATÓRIO (PDF) --- */
         #report-template { 
-            display: none; /* Invisível por padrão */
-            position: fixed; /* Fixo na tela quando visível */
-            top: 0; left: 0;
-            width: 100%; height: 100vh;
-            background: white;
-            z-index: 9999; /* Fica acima de tudo */
-            overflow-y: auto; /* Permite rolar se necessário */
-            padding: 20px 40px;
-            font-family: 'Inter', sans-serif;
-            color: #000;
+            display: none; /* Escondido por padrão */
+            position: fixed; top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: #ffffff; /* Fundo branco FORÇADO */
+            z-index: 9999;
+            overflow-y: auto;
+            padding: 40px;
+            font-family: 'Inter', sans-serif; color: #000;
         }
 
-        /* Classe que força quebra de página no PDF */
         .pdf-break {
             page-break-before: always;
-            margin-top: 40px;
+            margin-top: 60px;
             border-top: 1px dashed #ccc;
-            padding-top: 20px;
+            padding-top: 40px;
         }
 
         .rep-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
@@ -106,7 +103,6 @@
         .rep-info { text-align: right; font-size: 12px; color: #333; }
         .rep-title { font-size: 18px; font-weight: 700; text-transform: uppercase; margin: 20px 0 10px 0; border-left: 5px solid #2563eb; padding-left: 10px; }
 
-        /* Grid forçado para o PDF */
         .rep-grid { display: flex; gap: 15px; margin-bottom: 20px; justify-content: space-between; }
         .rep-card { flex: 1; border: 1px solid #ccc; padding: 15px; border-radius: 6px; background: #f8fafc; text-align: center; }
         .rep-card h4 { margin: 0; font-size: 12px; text-transform: uppercase; color: #64748b; }
@@ -117,9 +113,26 @@
         .rep-table td { border-bottom: 1px solid #ccc; padding: 8px; color: #333; }
         .rep-table tr:nth-child(even) { background: #f8fafc; }
 
-        .rep-chart-box { width: 100%; height: 450px; background: white; border: 1px solid #eee; padding: 10px; display: flex; justify-content: center; }
-        /* O gráfico precisa ser visível para a lib capturar */
-        #rep-chart-canvas { width: 100% !important; height: 100% !important; }
+        /* Estilo da caixa do gráfico */
+        .rep-chart-box { 
+            width: 1000px; /* Largura fixa alta para garantir resolução */
+            height: 500px; 
+            margin: 0 auto;
+            background: white; 
+            border: 1px solid #eee; 
+            padding: 10px; 
+            display: block; /* Importante para o html2pdf pegar */
+        }
+        
+        #rep-chart-img { 
+            width: 100%; height: 100%; object-fit: contain; display: block; 
+        }
+        
+        #rep-chart-canvas {
+            /* O canvas fica oculto visualmente mas existe para renderizar */
+            /* Se usarmos display:none ele não desenha. Usamos position absolute fora da area */
+            position: absolute; left: -9999px;
+        }
 
         @media (max-width: 768px) { #app-container { flex-direction: column; } aside { width: 100%; height: auto; padding: 1rem; border-right: none; border-bottom: 1px solid #1e293b; flex-direction: row; align-items: center; justify-content: space-between; } .brand { margin-bottom: 0; } nav { display: flex; gap: 0.5rem; } nav button span { display: none; } nav button { width: auto; padding: 0.5rem; margin: 0; } .user-profile { display: none; } header { padding: 0 1rem; } main { padding: 1rem; } }
     </style>
@@ -215,6 +228,7 @@
             <div class="rep-title">3. Evolução Comparativa (Gráfico)</div>
             <div class="rep-chart-box">
                 <canvas id="rep-chart-canvas"></canvas>
+                <img id="rep-chart-img" src="" style="display:none;"> 
             </div>
         </div>
     </div>
