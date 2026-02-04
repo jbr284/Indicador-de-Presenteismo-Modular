@@ -103,21 +103,21 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- PDF GENERATOR (HTML2PDF) ---
+    // --- PDF GENERATOR (HTML2PDF CORRIGIDO - OVERLAY METHOD) ---
     generatePDF: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
         if (!start || !end) return Swal.fire('Atenção', 'Selecione um período.', 'warning');
 
-        Swal.fire({title: 'Gerando PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+        Swal.fire({title: 'Gerando PDF...', didOpen: () => Swal.showLoading()});
 
-        // 1. Busca os dados para o Relatório
+        // 1. Busca os dados
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para o PDF.', 'info');
 
-        // 2. Preenche o Template Invisível
+        // 2. Preenche o Template (Overlay)
         document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
         document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
 
@@ -139,13 +139,11 @@ window.app = {
             chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
         });
 
-        // Preenche KPIs
         const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) + "%" : "0.00%";
         document.getElementById('rep-kpi-global').innerText = calc(global.fa, global.ef);
         document.getElementById('rep-kpi-p3').innerText = calc(p3.fa, p3.ef);
         document.getElementById('rep-kpi-p4').innerText = calc(p4.fa, p4.ef);
 
-        // Preenche Tabela
         const tbody = document.getElementById('rep-table-body');
         tbody.innerHTML = '';
         Object.keys(sectorTotals).sort().forEach(k => {
@@ -153,7 +151,11 @@ window.app = {
             tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${(t.ef/snapshot.size).toFixed(0)}*</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
         });
 
-        // Gera Gráfico do Relatório
+        // 3. MOSTRA O OVERLAY (TORNA O HTML VISÍVEL NA TELA PARA CAPTURA)
+        const reportContainer = document.getElementById('report-template');
+        reportContainer.style.display = 'block';
+
+        // 4. GERA O GRÁFICO (AGORA O CANVAS TEM TAMANHO REAL)
         const ctxRep = document.getElementById('rep-chart-canvas');
         if (reportChart) reportChart.destroy();
 
@@ -167,7 +169,7 @@ window.app = {
                 datasets: [{ label: '% Absenteísmo', data: values, backgroundColor: '#2563eb', borderColor: '#1e3a8a', borderWidth: 1 }] 
             },
             options: {
-                animation: false, // Importante: Sem animação para renderizar rápido
+                animation: false, 
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true } },
@@ -175,28 +177,27 @@ window.app = {
             }
         });
 
-        // 3. Aguarda renderizar e chama html2pdf
+        // 5. ESPERA 1 SEGUNDO (RENDERIZAÇÃO) E GERA O PDF
         setTimeout(() => {
-            const element = document.getElementById('report-template');
-            
-            // Configurações do PDF
             const opt = {
                 margin: 5,
                 filename: `Relatorio_Modular_${start}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 }, // Alta resolução
+                html2canvas: { scale: 2, useCORS: true }, 
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
             };
 
-            // Gera e baixa
-            html2pdf().set(opt).from(element).save().then(() => {
+            html2pdf().set(opt).from(reportContainer).save().then(() => {
+                // LIMPEZA APÓS GERAR
+                reportContainer.style.display = 'none'; // Esconde de novo
                 Swal.close();
-                Toast.fire({ icon: 'success', title: 'PDF baixado!' });
+                Toast.fire({ icon: 'success', title: 'PDF gerado!' });
             });
 
-        }, 800); // Delay para o gráfico aparecer
+        }, 1200); // Tempo seguro para o Chart.js desenhar
     },
 
+    // --- RESTO DAS FUNÇÕES ---
     loadUserProfile: async (uid) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
