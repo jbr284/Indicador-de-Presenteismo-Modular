@@ -21,7 +21,6 @@ const estruturaSetores = {
 };
 
 let chartEvolution = null;
-let reportChart = null; 
 let editingId = null;
 let secretCount = 0;
 let secretTimer = null;
@@ -44,6 +43,7 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
+    // --- SEGURANÇA (SECRET DEBUG & WIPE) ---
     secretDebug: () => {
         secretCount++; clearTimeout(secretTimer); secretTimer = setTimeout(() => { secretCount = 0; }, 1000);
         if (secretCount === 5) { app.wipeData(); secretCount = 0; }
@@ -65,6 +65,7 @@ window.app = {
         } else if (text) { Swal.fire('Erro', 'Palavra incorreta.', 'error'); }
     },
 
+    // --- CRUD ---
     saveData: async () => {
         const p = document.getElementById('inp-planta').value; const t = document.getElementById('inp-turno').value; const s = document.getElementById('inp-setor').value; const d = document.getElementById('inp-data').value; const ef = Number(document.getElementById('inp-efetivo').value); const fa = Number(document.getElementById('inp-faltas').value);
         if (!p || !s || !d || ef <= 0) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos.' });
@@ -103,112 +104,7 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- GERADOR DE RELATÓRIO "ON COMPLETE" ---
-    generatePDF: async () => {
-        const start = document.getElementById('dash-start').value;
-        const end = document.getElementById('dash-end').value;
-        if (!start || !end) return Swal.fire('Atenção', 'Selecione um período.', 'warning');
-
-        Swal.fire({title: 'Gerando PDF...', didOpen: () => Swal.showLoading()});
-
-        // 1. Busca os dados
-        const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
-        const snapshot = await getDocs(q);
-
-        if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para o PDF.', 'info');
-
-        // 2. Prepara Template
-        document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
-        document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
-
-        let global = { ef: 0, fa: 0 }, p3 = { ef:0, fa:0 }, p4 = { ef:0, fa:0 };
-        let sectorTotals = {};
-        let chartData = {};
-
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            global.ef += d.efetivo; global.fa += d.faltas;
-            if(d.planta === "PLANTA 3") { p3.ef += d.efetivo; p3.fa += d.faltas; } else { p4.ef += d.efetivo; p4.fa += d.faltas; }
-            
-            const key = `${d.setor} (${d.turno})`;
-            if(!sectorTotals[key]) sectorTotals[key] = { ef:0, fa:0, setor: d.setor, turno: d.turno };
-            sectorTotals[key].ef += d.efetivo; sectorTotals[key].fa += d.faltas;
-            
-            if(!chartData[d.setor]) chartData[d.setor] = { ef:0, fa:0 };
-            chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
-        });
-
-        const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) + "%" : "0.00%";
-        document.getElementById('rep-kpi-global').innerText = calc(global.fa, global.ef);
-        document.getElementById('rep-kpi-p3').innerText = calc(p3.fa, p3.ef);
-        document.getElementById('rep-kpi-p4').innerText = calc(p4.fa, p4.ef);
-
-        const tbody = document.getElementById('rep-table-body');
-        tbody.innerHTML = '';
-        Object.keys(sectorTotals).sort().forEach(k => {
-            const t = sectorTotals[k];
-            tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${(t.ef/snapshot.size).toFixed(0)}*</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
-        });
-
-        // 3. Mostra o Overlay (Necessário para o Chart.js desenhar)
-        const reportContainer = document.getElementById('report-template');
-        reportContainer.style.display = 'block';
-
-        // 4. Configura o Gráfico com Callback
-        const ctxRep = document.getElementById('rep-chart-canvas');
-        if (reportChart) reportChart.destroy();
-
-        const labels = Object.keys(chartData).sort();
-        const values = labels.map(l => chartData[l].ef > 0 ? parseFloat(((chartData[l].fa/chartData[l].ef)*100).toFixed(2)) : 0);
-
-        reportChart = new Chart(ctxRep, {
-            type: 'bar',
-            data: { 
-                labels: labels, 
-                datasets: [{ label: '% Absenteísmo', data: values, backgroundColor: '#2563eb', borderColor: '#1e3a8a', borderWidth: 1 }] 
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true } },
-                plugins: { legend: { display: false }, datalabels: { color: 'black', anchor: 'end', align: 'top', font: { weight: 'bold' }, formatter: v => v+'%' } },
-                // --- AQUI ESTÁ O SEGREDO ---
-                animation: {
-                    onComplete: function() {
-                        // 1. O gráfico terminou de desenhar. Converte para Imagem.
-                        const imgData = reportChart.toBase64Image();
-                        
-                        // 2. Coloca a imagem no elemento <img>
-                        const imgElement = document.getElementById('rep-chart-img');
-                        imgElement.src = imgData;
-                        imgElement.style.display = 'block'; // Mostra a imagem
-                        document.getElementById('rep-chart-canvas').style.display = 'none'; // Esconde o canvas (que buga no PDF)
-
-                        // 3. Agora gera o PDF com a imagem estática
-                        const opt = {
-                            margin: 5,
-                            filename: `Relatorio_Modular_${start}.pdf`,
-                            image: { type: 'jpeg', quality: 0.98 },
-                            html2canvas: { scale: 2, useCORS: true }, 
-                            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-                        };
-
-                        html2pdf().set(opt).from(reportContainer).save().then(() => {
-                            // Limpeza Final
-                            reportContainer.style.display = 'none'; // Esconde o overlay
-                            // Restaura o estado para a próxima vez (volta a mostrar canvas, esconde img)
-                            document.getElementById('rep-chart-canvas').style.display = 'block';
-                            imgElement.style.display = 'none';
-                            
-                            Swal.close();
-                            Toast.fire({ icon: 'success', title: 'PDF gerado com sucesso!' });
-                        });
-                    }
-                }
-            }
-        });
-    },
-
+    // --- RESTO DO SISTEMA ---
     loadUserProfile: async (uid) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
