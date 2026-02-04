@@ -43,7 +43,6 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- SEGURANÇA (SECRET DEBUG & WIPE) ---
     secretDebug: () => {
         secretCount++; clearTimeout(secretTimer); secretTimer = setTimeout(() => { secretCount = 0; }, 1000);
         if (secretCount === 5) { app.wipeData(); secretCount = 0; }
@@ -65,7 +64,6 @@ window.app = {
         } else if (text) { Swal.fire('Erro', 'Palavra incorreta.', 'error'); }
     },
 
-    // --- CRUD ---
     saveData: async () => {
         const p = document.getElementById('inp-planta').value; const t = document.getElementById('inp-turno').value; const s = document.getElementById('inp-setor').value; const d = document.getElementById('inp-data').value; const ef = Number(document.getElementById('inp-efetivo').value); const fa = Number(document.getElementById('inp-faltas').value);
         if (!p || !s || !d || ef <= 0) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos.' });
@@ -104,7 +102,12 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- RESTO DO SISTEMA ---
+    // --- IMPRESSÃO NATIVA ---
+    printDashboard: () => {
+        // Apenas chama o print nativo. O CSS @media print fará a mágica do layout.
+        window.print();
+    },
+
     loadUserProfile: async (uid) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
