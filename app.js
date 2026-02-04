@@ -102,17 +102,32 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- IMPRESSÃO NATIVA (COM TRUQUE DO GRÁFICO) ---
+    // --- IMPRESSÃO COM DELAY (CORREÇÃO) ---
     printDashboard: () => {
         if (chartEvolution) {
-            // 1. Converte o gráfico atual para imagem Base64
-            const imgUrl = chartEvolution.toBase64Image();
-            // 2. Coloca na tag <img> oculta
-            const imgTag = document.getElementById('chart-print-img');
-            imgTag.src = imgUrl;
+            // Avisa o usuário que está preparando
+            Swal.fire({
+                title: 'Preparando Impressão...',
+                text: 'Aguarde um momento.',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                    
+                    // 1. Converte e aplica a imagem
+                    const imgUrl = chartEvolution.toBase64Image();
+                    const imgTag = document.getElementById('chart-print-img');
+                    imgTag.src = imgUrl;
+
+                    // 2. Aguarda 500ms para o navegador renderizar a imagem no DOM
+                    setTimeout(() => {
+                        Swal.close(); // Fecha o loading
+                        window.print(); // Abre a impressão
+                    }, 800); // 800ms é super seguro
+                }
+            });
+        } else {
+            window.print();
         }
-        // 3. Chama a impressão (O CSS @media print vai esconder o canvas e mostrar a img)
-        window.print();
     },
 
     loadUserProfile: async (uid) => {
