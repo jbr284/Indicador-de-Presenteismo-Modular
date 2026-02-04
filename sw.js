@@ -1,4 +1,4 @@
-const CACHE_NAME = 'modular-absenteismo-v26';
+const CACHE_NAME = 'modular-absenteismo-v27';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -37,3 +37,4 @@ self.addEventListener('fetch', (event) => {
     }).catch(() => caches.match(event.request))
   );
 });
+
