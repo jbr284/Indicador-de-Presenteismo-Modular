@@ -102,9 +102,16 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- IMPRESSÃO NATIVA ---
+    // --- IMPRESSÃO NATIVA (COM TRUQUE DO GRÁFICO) ---
     printDashboard: () => {
-        // Apenas chama o print nativo. O CSS @media print fará a mágica do layout.
+        if (chartEvolution) {
+            // 1. Converte o gráfico atual para imagem Base64
+            const imgUrl = chartEvolution.toBase64Image();
+            // 2. Coloca na tag <img> oculta
+            const imgTag = document.getElementById('chart-print-img');
+            imgTag.src = imgUrl;
+        }
+        // 3. Chama a impressão (O CSS @media print vai esconder o canvas e mostrar a img)
         window.print();
     },
 
