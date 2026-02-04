@@ -90,21 +90,20 @@ window.app = {
 
         if (!p || !s || !d || ef <= 0) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos.' });
 
-        // --- TRAVA DE DATA FUTURA ---
-        const parts = d.split('-'); // 2026-02-28 -> [2026, 02, 28]
-        const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); // Cria data local correta
+        // TRAVA DE DATA FUTURA
+        const parts = d.split('-'); 
+        const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); 
         const today = new Date();
-        today.setHours(0,0,0,0); // Zera hora para comparar apenas dia
+        today.setHours(0,0,0,0); 
 
         if (inputDate > today) {
             return Swal.fire({
                 icon: 'error',
                 title: 'Data Futura Bloqueada',
-                html: `Você selecionou <b>${d.split('-').reverse().join('/')}</b>.<br>Não é permitido lançar registros para dias que ainda não aconteceram.`,
+                html: `Você selecionou <b>${d.split('-').reverse().join('/')}</b>.<br>Não é permitido lançar registros para dias futuros.`,
                 confirmButtonColor: '#d33'
             });
         }
-        // ----------------------------
 
         try {
             const abs = parseFloat(((fa/ef)*100).toFixed(2));
@@ -118,12 +117,11 @@ window.app = {
                 return;
             }
 
-            // CRIAR NOVO (CHECK DE DUPLICIDADE)
+            // CRIAR NOVO (CHECK DUPLICIDADE)
             const q = query(collection(db, "registros_absenteismo"), where("data_registro", "==", d), where("planta", "==", p), where("turno", "==", t), where("setor", "==", s));
             const dupCheck = await getDocs(q);
 
             if (!dupCheck.empty) {
-                // ALERTA DUPLICIDADE
                 return Swal.fire({
                     icon: 'warning',
                     title: 'Registro Duplicado!',
@@ -249,8 +247,13 @@ onAuthStateChanged(auth, u => {
             p3.innerHTML = (h3_1?`<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h3_1:'') + (h3_2?`<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h3_2:'') + tot(t3);
             p4.innerHTML = (h4_1?`<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1:'') + (h4_2?`<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2:'') + tot(t4);
         });
-        const d = new Date(), y = d.getFullYear(), m = d.getMonth();
-        document.getElementById('dash-start').value = new Date(y, m, 1).toISOString().split('T')[0];
-        document.getElementById('dash-end').value = new Date(y, m+1, 0).toISOString().split('T')[0];
+        
+        // CONFIGURAÇÃO DE DATA FIXA (SOLICITADA)
+        // Início fixo: 01/01/2026
+        document.getElementById('dash-start').value = "2026-01-01";
+        // Fim dinâmico: Hoje
+        const today = new Date();
+        const localToday = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+        document.getElementById('dash-end').value = localToday;
     }
 });
