@@ -90,6 +90,22 @@ window.app = {
 
         if (!p || !s || !d || ef <= 0) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos.' });
 
+        // --- TRAVA DE DATA FUTURA ---
+        const parts = d.split('-'); // 2026-02-28 -> [2026, 02, 28]
+        const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); // Cria data local correta
+        const today = new Date();
+        today.setHours(0,0,0,0); // Zera hora para comparar apenas dia
+
+        if (inputDate > today) {
+            return Swal.fire({
+                icon: 'error',
+                title: 'Data Futura Bloqueada',
+                html: `Você selecionou <b>${d.split('-').reverse().join('/')}</b>.<br>Não é permitido lançar registros para dias que ainda não aconteceram.`,
+                confirmButtonColor: '#d33'
+            });
+        }
+        // ----------------------------
+
         try {
             const abs = parseFloat(((fa/ef)*100).toFixed(2));
 
@@ -107,16 +123,16 @@ window.app = {
             const dupCheck = await getDocs(q);
 
             if (!dupCheck.empty) {
-                // ALERTA CORRIGIDO: APENAS BOTÃO CANCELAR
+                // ALERTA DUPLICIDADE
                 return Swal.fire({
                     icon: 'warning',
                     title: 'Registro Duplicado!',
                     html: `<p>Você está duplicando um registro para <b>${s}</b> na data <b>${d.split('-').reverse().join('/')}</b>.</p>
                            <p style="font-size:0.9rem; color:#d33;">Isso gera falha no cálculo.</p>
                            <p>Use o botão de <b>edição</b> na tabela se precisar alterar.</p>`,
-                    confirmButtonText: 'Cancelar Registro', // Agora este é o único botão
-                    confirmButtonColor: '#d33', // Vermelho para indicar "Pare"
-                    showCancelButton: false // Remove o botão secundário
+                    confirmButtonText: 'Cancelar Registro', 
+                    confirmButtonColor: '#d33',
+                    showCancelButton: false
                 });
             }
 
