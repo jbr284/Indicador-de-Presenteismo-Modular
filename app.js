@@ -21,7 +21,7 @@ const estruturaSetores = {
 };
 
 let chartEvolution = null;
-let reportChart = null; // Gráfico exclusivo do relatório
+let reportChart = null; 
 let editingId = null;
 let secretCount = 0;
 let secretTimer = null;
@@ -103,43 +103,43 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- GERADOR DE RELATÓRIO (IMPRESSÃO) ---
+    // --- GERADOR DE RELATÓRIO "CONGELADO" ---
     printReport: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
         if (!start || !end) return Swal.fire('Atenção', 'Selecione um período.', 'warning');
 
-        // 1. Preenche Cabeçalhos
-        document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
-        document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
+        Swal.fire({title: 'Gerando Relatório...', didOpen: () => Swal.showLoading()});
 
-        // 2. Busca Dados Específicos para o Relatório
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
         const snapshot = await getDocs(q);
 
         if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para imprimir.', 'info');
 
-        // 3. Processa Dados (Cópia da lógica do Dashboard, mas focada no papel)
+        // Preenche Dados (Cabeçalho, KPIs, Tabela)
+        document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
+        document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
+
         let global = { ef: 0, fa: 0 }, p3 = { ef:0, fa:0 }, p4 = { ef:0, fa:0 };
         let sectorTotals = {};
+        let chartData = {};
 
         snapshot.forEach(doc => {
             const d = doc.data();
             global.ef += d.efetivo; global.fa += d.faltas;
             if(d.planta === "PLANTA 3") { p3.ef += d.efetivo; p3.fa += d.faltas; } else { p4.ef += d.efetivo; p4.fa += d.faltas; }
-            
             const key = `${d.setor} (${d.turno})`;
             if(!sectorTotals[key]) sectorTotals[key] = { ef:0, fa:0, setor: d.setor, turno: d.turno };
             sectorTotals[key].ef += d.efetivo; sectorTotals[key].fa += d.faltas;
+            if(!chartData[d.setor]) chartData[d.setor] = { ef:0, fa:0 };
+            chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
         });
 
-        // 4. Preenche KPIs da Pág 1
         const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) + "%" : "0.00%";
         document.getElementById('rep-kpi-global').innerText = calc(global.fa, global.ef);
         document.getElementById('rep-kpi-p3').innerText = calc(p3.fa, p3.ef);
         document.getElementById('rep-kpi-p4').innerText = calc(p4.fa, p4.ef);
 
-        // 5. Preenche Tabela da Pág 1
         const tbody = document.getElementById('rep-table-body');
         tbody.innerHTML = '';
         Object.keys(sectorTotals).sort().forEach(k => {
@@ -147,48 +147,57 @@ window.app = {
             tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${t.ef}</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
         });
 
-        // 6. Gera Gráfico da Pág 2
-        const ctxRep = document.getElementById('rep-chart-canvas');
-        if (reportChart) reportChart.destroy(); // Limpa anterior
+        // --- TRUQUE DO GRÁFICO ---
+        // 1. Torna o container visível (para o Chart.js medir o tamanho)
+        const reportContainer = document.getElementById('report-container');
+        const appContainer = document.getElementById('app-container');
+        
+        appContainer.style.display = 'none'; // Esconde App
+        reportContainer.style.display = 'block'; // Mostra Relatório
 
-        // Agrupa por setor (independente do turno para o gráfico ficar mais limpo, ou mantém detalhado)
-        // Vamos usar a mesma lógica do gráfico de tela (Agrupado por Setor Geral)
-        let chartData = {};
-        snapshot.forEach(doc => {
-            const d = doc.data();
-            if(!chartData[d.setor]) chartData[d.setor] = { ef:0, fa:0 };
-            chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
-        });
+        // 2. Gera o gráfico
+        const ctxRep = document.getElementById('rep-chart-canvas');
+        // Garante que o canvas esteja visível e limpo
+        ctxRep.style.display = 'block';
+        document.getElementById('rep-chart-img').style.display = 'none';
+
+        if (reportChart) reportChart.destroy();
 
         const labels = Object.keys(chartData).sort();
         const values = labels.map(l => chartData[l].ef > 0 ? parseFloat(((chartData[l].fa/chartData[l].ef)*100).toFixed(2)) : 0);
 
         reportChart = new Chart(ctxRep, {
             type: 'bar',
-            data: { 
-                labels: labels, 
-                datasets: [{ 
-                    label: '% Absenteísmo', 
-                    data: values, 
-                    backgroundColor: '#2563eb', // Azul Sólido para impressão
-                    borderColor: '#1e3a8a',
-                    borderWidth: 1
-                }] 
-            },
+            data: { labels: labels, datasets: [{ label: '% Absenteísmo', data: values, backgroundColor: '#2563eb', borderColor: '#1e3a8a', borderWidth: 1 }] },
             options: {
-                animation: false, // DESLIGA ANIMAÇÃO PARA IMPRIMIR NA HORA
+                animation: false, // Sem animação para ser instantâneo
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true } },
-                plugins: { 
-                    legend: { display: false },
-                    datalabels: { color: 'black', anchor: 'end', align: 'top', font: { weight: 'bold' }, formatter: v => v+'%' }
-                }
+                plugins: { legend: { display: false }, datalabels: { color: 'black', anchor: 'end', align: 'top', font: { weight: 'bold' }, formatter: v => v+'%' } }
             }
         });
 
-        // 7. Chama Impressão (Pequeno delay para garantir renderização do canvas)
-        setTimeout(() => { window.print(); }, 500);
+        // 3. Converte para Imagem e Imprime
+        setTimeout(() => {
+            const imgData = reportChart.toBase64Image();
+            document.getElementById('rep-chart-img').src = imgData;
+            
+            // Troca Canvas por Imagem (Garante que sai na impressão)
+            ctxRep.style.display = 'none';
+            document.getElementById('rep-chart-img').style.display = 'block';
+
+            Swal.close();
+            window.print();
+
+            // 4. Restaura visão original após impressão (ou cancelamento)
+            // Um pequeno delay para garantir que o dialog de print abriu
+            setTimeout(() => {
+                reportContainer.style.display = 'none';
+                appContainer.style.display = 'flex';
+            }, 1000);
+
+        }, 800); // Espera renderizar
     },
 
     loadUserProfile: async (uid) => {
