@@ -21,6 +21,7 @@ const estruturaSetores = {
 };
 
 let chartEvolution = null;
+let reportChart = null; // Gráfico exclusivo do relatório
 let editingId = null;
 let secretCount = 0;
 let secretTimer = null;
@@ -43,104 +44,49 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- SEGURANÇA ---
     secretDebug: () => {
-        secretCount++;
-        clearTimeout(secretTimer);
-        secretTimer = setTimeout(() => { secretCount = 0; }, 1000);
-        if (secretCount === 5) {
-            app.wipeData();
-            secretCount = 0;
-        }
+        secretCount++; clearTimeout(secretTimer); secretTimer = setTimeout(() => { secretCount = 0; }, 1000);
+        if (secretCount === 5) { app.wipeData(); secretCount = 0; }
     },
 
     wipeData: async () => {
         const { value: text } = await Swal.fire({
-            title: 'ACESSO RESTRITO',
-            text: "Para limpar TODA a base de dados, digite 'DELETAR' abaixo. Isso é irreversível.",
-            input: 'text', icon: 'warning', inputPlaceholder: 'DELETAR',
-            showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'CONFIRMAR LIMPEZA'
+            title: 'ACESSO RESTRITO', text: "Para limpar TODA a base de dados, digite 'DELETAR' abaixo.", input: 'text', icon: 'warning', inputPlaceholder: 'DELETAR', showCancelButton: true, confirmButtonColor: '#d33', cancelButtonColor: '#3085d6', confirmButtonText: 'CONFIRMAR LIMPEZA'
         });
-
         if (text === 'DELETAR') {
             Swal.fire({title: 'Apagando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
             try {
-                const q = query(collection(db, "registros_absenteismo"));
-                const snapshot = await getDocs(q);
+                const q = query(collection(db, "registros_absenteismo")); const snapshot = await getDocs(q);
                 if (snapshot.empty) return Swal.fire('Vazio', 'Não há registros.', 'info');
-                
                 let batch = writeBatch(db); let count = 0;
                 for (const doc of snapshot.docs) { batch.delete(doc.ref); count++; if (count % 400 === 0) { await batch.commit(); batch = writeBatch(db); } }
-                await batch.commit();
-                Swal.fire('Limpo!', `${count} registros apagados.`, 'success');
+                await batch.commit(); Swal.fire('Limpo!', `${count} registros apagados.`, 'success');
             } catch (err) { Swal.fire('Erro', 'Falha ao limpar.', 'error'); }
-        } else if (text) {
-            Swal.fire('Erro', 'Palavra incorreta.', 'error');
-        }
+        } else if (text) { Swal.fire('Erro', 'Palavra incorreta.', 'error'); }
     },
 
-    // --- CRUD ---
     saveData: async () => {
-        const p = document.getElementById('inp-planta').value;
-        const t = document.getElementById('inp-turno').value;
-        const s = document.getElementById('inp-setor').value;
-        const d = document.getElementById('inp-data').value;
-        const ef = Number(document.getElementById('inp-efetivo').value);
-        const fa = Number(document.getElementById('inp-faltas').value);
-
+        const p = document.getElementById('inp-planta').value; const t = document.getElementById('inp-turno').value; const s = document.getElementById('inp-setor').value; const d = document.getElementById('inp-data').value; const ef = Number(document.getElementById('inp-efetivo').value); const fa = Number(document.getElementById('inp-faltas').value);
         if (!p || !s || !d || ef <= 0) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha todos os campos.' });
 
-        // TRAVA DE DATA FUTURA
-        const parts = d.split('-'); 
-        const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); 
-        const today = new Date();
-        today.setHours(0,0,0,0); 
-
-        if (inputDate > today) {
-            return Swal.fire({
-                icon: 'error',
-                title: 'Data Futura Bloqueada',
-                html: `Você selecionou <b>${d.split('-').reverse().join('/')}</b>.<br>Não é permitido lançar registros para dias futuros.`,
-                confirmButtonColor: '#d33'
-            });
-        }
+        const parts = d.split('-'); const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); const today = new Date(); today.setHours(0,0,0,0);
+        if (inputDate > today) return Swal.fire({ icon: 'error', title: 'Data Futura Bloqueada', html: `Você selecionou <b>${d.split('-').reverse().join('/')}</b>.<br>Não é permitido lançar data futura.`, confirmButtonColor: '#d33' });
 
         try {
             const abs = parseFloat(((fa/ef)*100).toFixed(2));
-
-            // ATUALIZAR
             if (editingId) {
                 await updateDoc(doc(db, "registros_absenteismo", editingId), { planta: p, turno: t, setor: s, data_registro: d, efetivo: ef, faltas: fa, absenteismo_percentual: abs, updated_at: Timestamp.now() });
                 await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
-                Toast.fire({ icon: 'success', title: 'Atualizado!' });
-                app.cancelEdit();
-                return;
+                Toast.fire({ icon: 'success', title: 'Atualizado!' }); app.cancelEdit(); return;
             }
-
-            // CRIAR NOVO (CHECK DUPLICIDADE)
             const q = query(collection(db, "registros_absenteismo"), where("data_registro", "==", d), where("planta", "==", p), where("turno", "==", t), where("setor", "==", s));
             const dupCheck = await getDocs(q);
+            if (!dupCheck.empty) return Swal.fire({ icon: 'warning', title: 'Registro Duplicado!', html: `<p>Já existe registro para <b>${s}</b> em <b>${d.split('-').reverse().join('/')}</b>.</p><p>Use a edição na tabela.</p>`, confirmButtonText: 'Cancelar Registro', confirmButtonColor: '#d33', showCancelButton: false });
 
-            if (!dupCheck.empty) {
-                return Swal.fire({
-                    icon: 'warning',
-                    title: 'Registro Duplicado!',
-                    html: `<p>Você está duplicando um registro para <b>${s}</b> na data <b>${d.split('-').reverse().join('/')}</b>.</p>
-                           <p style="font-size:0.9rem; color:#d33;">Isso gera falha no cálculo.</p>
-                           <p>Use o botão de <b>edição</b> na tabela se precisar alterar.</p>`,
-                    confirmButtonText: 'Cancelar Registro', 
-                    confirmButtonColor: '#d33',
-                    showCancelButton: false
-                });
-            }
-
-            // SALVAR
             await addDoc(collection(db, "registros_absenteismo"), { planta: p, turno: t, setor: s, data_registro: d, timestamp: Timestamp.now(), efetivo: ef, faltas: fa, absenteismo_percentual: abs, usuario_id: auth.currentUser.uid });
             await setDoc(doc(db, "config_efetivo", `${p}_${t}_${s}`), { efetivo_atual: ef, ultima_atualizacao: Timestamp.now() }, { merge: true });
-            Toast.fire({ icon: 'success', title: 'Salvo!' });
-            document.getElementById('inp-faltas').value = '';
-
-        } catch (e) { console.error(e); Swal.fire({ icon: 'error', title: 'Erro', text: 'Não foi possível salvar.' }); }
+            Toast.fire({ icon: 'success', title: 'Salvo!' }); document.getElementById('inp-faltas').value = '';
+        } catch (e) { Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao salvar.' }); }
     },
 
     editItem: async (id) => {
@@ -148,31 +94,103 @@ window.app = {
             const docSnap = await getDoc(doc(db, "registros_absenteismo", id));
             if (!docSnap.exists()) return;
             const data = docSnap.data();
-            document.getElementById('inp-planta').value = data.planta; app.updateSectors();
-            document.getElementById('inp-setor').value = data.setor; document.getElementById('inp-turno').value = data.turno;
-            document.getElementById('inp-data').value = data.data_registro; document.getElementById('inp-efetivo').value = data.efetivo;
-            document.getElementById('inp-faltas').value = data.faltas;
-            editingId = id;
-            document.getElementById('btn-save-text').innerText = "Atualizar Registro";
-            document.getElementById('btn-cancel-edit').style.display = 'inline-block';
+            document.getElementById('inp-planta').value = data.planta; app.updateSectors(); document.getElementById('inp-setor').value = data.setor; document.getElementById('inp-turno').value = data.turno; document.getElementById('inp-data').value = data.data_registro; document.getElementById('inp-efetivo').value = data.efetivo; document.getElementById('inp-faltas').value = data.faltas;
+            editingId = id; document.getElementById('btn-save-text').innerText = "Atualizar Registro"; document.getElementById('btn-cancel-edit').style.display = 'inline-block';
             document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
         } catch(e) { console.error(e); }
     },
 
-    cancelEdit: () => {
-        editingId = null;
-        document.getElementById('btn-save-text').innerText = "Salvar Registro";
-        document.getElementById('btn-cancel-edit').style.display = 'none';
-        document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = '';
-    },
+    cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
+    deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    deleteItem: async (id) => { 
-        Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => {
-            if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); }
+    // --- GERADOR DE RELATÓRIO (IMPRESSÃO) ---
+    printReport: async () => {
+        const start = document.getElementById('dash-start').value;
+        const end = document.getElementById('dash-end').value;
+        if (!start || !end) return Swal.fire('Atenção', 'Selecione um período.', 'warning');
+
+        // 1. Preenche Cabeçalhos
+        document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
+        document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
+
+        // 2. Busca Dados Específicos para o Relatório
+        const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para imprimir.', 'info');
+
+        // 3. Processa Dados (Cópia da lógica do Dashboard, mas focada no papel)
+        let global = { ef: 0, fa: 0 }, p3 = { ef:0, fa:0 }, p4 = { ef:0, fa:0 };
+        let sectorTotals = {};
+
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            global.ef += d.efetivo; global.fa += d.faltas;
+            if(d.planta === "PLANTA 3") { p3.ef += d.efetivo; p3.fa += d.faltas; } else { p4.ef += d.efetivo; p4.fa += d.faltas; }
+            
+            const key = `${d.setor} (${d.turno})`;
+            if(!sectorTotals[key]) sectorTotals[key] = { ef:0, fa:0, setor: d.setor, turno: d.turno };
+            sectorTotals[key].ef += d.efetivo; sectorTotals[key].fa += d.faltas;
         });
+
+        // 4. Preenche KPIs da Pág 1
+        const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) + "%" : "0.00%";
+        document.getElementById('rep-kpi-global').innerText = calc(global.fa, global.ef);
+        document.getElementById('rep-kpi-p3').innerText = calc(p3.fa, p3.ef);
+        document.getElementById('rep-kpi-p4').innerText = calc(p4.fa, p4.ef);
+
+        // 5. Preenche Tabela da Pág 1
+        const tbody = document.getElementById('rep-table-body');
+        tbody.innerHTML = '';
+        Object.keys(sectorTotals).sort().forEach(k => {
+            const t = sectorTotals[k];
+            tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${t.ef}</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
+        });
+
+        // 6. Gera Gráfico da Pág 2
+        const ctxRep = document.getElementById('rep-chart-canvas');
+        if (reportChart) reportChart.destroy(); // Limpa anterior
+
+        // Agrupa por setor (independente do turno para o gráfico ficar mais limpo, ou mantém detalhado)
+        // Vamos usar a mesma lógica do gráfico de tela (Agrupado por Setor Geral)
+        let chartData = {};
+        snapshot.forEach(doc => {
+            const d = doc.data();
+            if(!chartData[d.setor]) chartData[d.setor] = { ef:0, fa:0 };
+            chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
+        });
+
+        const labels = Object.keys(chartData).sort();
+        const values = labels.map(l => chartData[l].ef > 0 ? parseFloat(((chartData[l].fa/chartData[l].ef)*100).toFixed(2)) : 0);
+
+        reportChart = new Chart(ctxRep, {
+            type: 'bar',
+            data: { 
+                labels: labels, 
+                datasets: [{ 
+                    label: '% Absenteísmo', 
+                    data: values, 
+                    backgroundColor: '#2563eb', // Azul Sólido para impressão
+                    borderColor: '#1e3a8a',
+                    borderWidth: 1
+                }] 
+            },
+            options: {
+                animation: false, // DESLIGA ANIMAÇÃO PARA IMPRIMIR NA HORA
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } },
+                plugins: { 
+                    legend: { display: false },
+                    datalabels: { color: 'black', anchor: 'end', align: 'top', font: { weight: 'bold' }, formatter: v => v+'%' }
+                }
+            }
+        });
+
+        // 7. Chama Impressão (Pequeno delay para garantir renderização do canvas)
+        setTimeout(() => { window.print(); }, 500);
     },
 
-    // --- PERFIL & UI ---
     loadUserProfile: async (uid) => {
         try {
             const snap = await getDoc(doc(db, "users", uid));
@@ -248,10 +266,7 @@ onAuthStateChanged(auth, u => {
             p4.innerHTML = (h4_1?`<tr class="turn-header"><td colspan="6">1º Turno</td></tr>`+h4_1:'') + (h4_2?`<tr class="turn-header"><td colspan="6">2º Turno</td></tr>`+h4_2:'') + tot(t4);
         });
         
-        // CONFIGURAÇÃO DE DATA FIXA (SOLICITADA)
-        // Início fixo: 01/01/2026
         document.getElementById('dash-start').value = "2026-01-01";
-        // Fim dinâmico: Hoje
         const today = new Date();
         const localToday = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         document.getElementById('dash-end').value = localToday;
