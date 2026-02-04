@@ -15,6 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <style>
         :root { --primary: #2563eb; --primary-dark: #1d4ed8; --sidebar-bg: #0f172a; --sidebar-text: #94a3b8; --bg: #f1f5f9; --card-bg: #ffffff; --text-main: #334155; --text-light: #64748b; --border: #e2e8f0; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; }
         * { box-sizing: border-box; } body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text-main); margin: 0; display: flex; height: 100vh; overflow: hidden; }
@@ -60,7 +61,6 @@
         .btn-danger:hover { filter: brightness(0.9); transform: translateY(-1px); }
         .btn-edit { background: var(--warning); color: white; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
         .btn-edit:hover { filter: brightness(0.9); transform: translateY(-1px); }
-        /* Botão Imprimir (Cinza Escuro) */
         .btn-print { background: #334155; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-print:hover { background: #1e293b; transform: translateY(-1px); }
         
@@ -77,96 +77,47 @@
         .mini-card .val { font-size: 1.75rem; font-weight: 700; color: var(--text-main); margin-top: 0.5rem; }
         .mini-card .sub-val { font-size: 0.8rem; color: var(--success); font-weight: 600; margin-top: 0.2rem; display: flex; align-items: center; gap: 4px; }
         .border-t1 { border-left-color: #3b82f6; } .border-t2 { border-left-color: #f59e0b; } .border-total { border-left-color: var(--success); } .border-sector { border-left-color: #8b5cf6; } .alert-text { color: var(--danger) !important; }
-        .chart-box { height: 400px; padding: 1rem; }
+        
+        .chart-box { height: 400px; padding: 1rem; position: relative; }
+        
+        /* IMAGEM DO GRÁFICO (Oculta na tela, Visível na impressão) */
+        #chart-print-img { 
+            display: none; 
+            width: 100%; 
+            height: auto; 
+            max-height: 400px; 
+            object-fit: contain; 
+        }
 
         /* --- O SEGREDO DA IMPRESSÃO (CSS PRINT) --- */
         @media print {
-            /* Configuração da Página */
-            @page { 
-                size: A4 landscape; /* Força horizontal */
-                margin: 5mm; 
-            }
-            
-            /* Reset Geral */
-            body { 
-                background: white; 
-                color: black; 
-                height: auto; 
-                overflow: visible; 
-                font-size: 12pt;
-                -webkit-print-color-adjust: exact; /* Força impressão de cores de fundo */
-                print-color-adjust: exact;
-            }
-
-            /* Esconde tudo o que não é o painel de Indicadores */
-            aside, #auth-overlay, .btn, .input-group:has(button) { 
-                display: none !important; 
-            }
-
-            /* Ajusta o container principal */
-            #app-container, .content-wrapper, main { 
-                width: 100% !important; 
-                margin: 0 !important; 
-                padding: 0 !important; 
-                display: block !important; 
-                overflow: visible !important;
-            }
-
+            @page { size: A4 landscape; margin: 5mm; }
+            body { background: white; color: black; height: auto; overflow: visible; font-size: 12pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            aside, #auth-overlay, .btn, .input-group:has(button) { display: none !important; }
+            #app-container, .content-wrapper, main { width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; overflow: visible !important; }
             header { border: none; padding: 0; margin-bottom: 20px; }
             header h1 { font-size: 24pt; text-align: center; color: #000; }
             .header-date { display: block; text-align: center; background: none; color: #666; margin-top: 5px; }
-
-            /* Garante que só a aba de Indicadores apareça */
             #tab-lancamento { display: none !important; }
             #tab-indicadores { display: block !important; }
-
-            /* Esconde os filtros (inputs de data) na impressão para limpar a tela */
             #tab-indicadores .card:first-child { display: none !important; }
-
-            /* TÍTULOS DE SEÇÃO */
-            .dash-section-title { 
-                font-size: 14pt; 
-                color: #000; 
-                border-bottom: 2px solid #000; 
-                margin-top: 20px; 
-                margin-bottom: 10px;
-                page-break-after: avoid; /* Não quebra logo depois do título */
-            }
-
-            /* GRID (Força layout lado a lado, impedindo lista vertical) */
-            .compact-grid {
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important; /* 3 colunas fixas */
-                gap: 15px !important;
-                page-break-inside: avoid; /* Tenta não quebrar o grid no meio */
-            }
-            
-            /* Ajuste para grids com muitos itens (Setores) */
-            #grid-t1, #grid-t2, #grid-consolidado {
-                grid-template-columns: repeat(4, 1fr) !important; /* 4 colunas para caber melhor */
-            }
-
-            /* CARDS (Remove sombras e bordas arredondadas para economizar) */
-            .mini-card {
-                border: 1px solid #000;
-                box-shadow: none;
-                break-inside: avoid; /* Não quebra um card no meio da página */
-            }
+            .dash-section-title { font-size: 14pt; color: #000; border-bottom: 2px solid #000; margin-top: 20px; margin-bottom: 10px; page-break-after: avoid; }
+            .compact-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 15px !important; page-break-inside: avoid; }
+            #grid-t1, #grid-t2, #grid-consolidado { grid-template-columns: repeat(4, 1fr) !important; }
+            .mini-card { border: 1px solid #000; box-shadow: none; break-inside: avoid; }
             .mini-card h4 { color: #000; font-size: 10pt; }
             .mini-card .val { color: #000; font-size: 18pt; }
-
-            /* GRÁFICO (O Grande Vilão) */
+            
+            /* O PULO DO GATO PARA O GRÁFICO */
             .chart-box {
                 margin-top: 30px;
-                height: 400px !important; /* Altura fixa */
+                height: auto !important; /* Altura automática para a imagem */
                 width: 100% !important;
                 border: 1px solid #ccc;
-                page-break-before: auto; /* Deixa o navegador decidir, ou use 'always' para forçar nova pag */
-                break-inside: avoid; /* Tenta não cortar o gráfico */
+                break-inside: avoid;
             }
-            
-            /* Se quiser forçar o gráfico sempre em nova página, descomente: */
-            /* canvas { page-break-before: always; } */
+            #chart-evolution { display: none !important; } /* Esconde o canvas bugado */
+            #chart-print-img { display: block !important; } /* Mostra a imagem estática */
         }
 
         @media (max-width: 768px) { #app-container { flex-direction: column; } aside { width: 100%; height: auto; padding: 1rem; border-right: none; border-bottom: 1px solid #1e293b; flex-direction: row; align-items: center; justify-content: space-between; } .brand { margin-bottom: 0; } nav { display: flex; gap: 0.5rem; } nav button span { display: none; } nav button { width: auto; padding: 0.5rem; margin: 0; } .user-profile { display: none; } header { padding: 0 1rem; } main { padding: 1rem; } }
@@ -224,7 +175,10 @@
                     <div class="dash-section-title">Performance por Setor - 1º TURNO</div><div id="grid-t1" class="compact-grid"></div>
                     <div class="dash-section-title">Performance por Setor - 2º TURNO</div><div id="grid-t2" class="compact-grid"></div>
                     <div class="dash-section-title">Consolidado por Setor (Total)</div><div id="grid-consolidado" class="compact-grid"></div>
-                    <div class="card chart-box" style="margin-top: 1.5rem;"><canvas id="chart-evolution"></canvas></div>
+                    <div class="card chart-box" style="margin-top: 1.5rem;">
+                        <canvas id="chart-evolution"></canvas>
+                        <img id="chart-print-img" src="" alt="Gráfico de Evolução">
+                    </div>
                 </section>
             </main>
         </div>
