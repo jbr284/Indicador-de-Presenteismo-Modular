@@ -21,7 +21,7 @@ const estruturaSetores = {
 };
 
 let chartEvolution = null;
-let reportChart = null; 
+let reportChart = null; // Gráfico exclusivo para PDF
 let editingId = null;
 let secretCount = 0;
 let secretTimer = null;
@@ -103,20 +103,21 @@ window.app = {
     cancelEdit: () => { editingId = null; document.getElementById('btn-save-text').innerText = "Salvar Registro"; document.getElementById('btn-cancel-edit').style.display = 'none'; document.getElementById('inp-efetivo').value = ''; document.getElementById('inp-faltas').value = ''; },
     deleteItem: async (id) => { Swal.fire({ title: 'Excluir?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim' }).then(async (r) => { if (r.isConfirmed) { await deleteDoc(doc(db, "registros_absenteismo", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); } }); },
 
-    // --- GERADOR DE RELATÓRIO "CONGELADO" ---
-    printReport: async () => {
+    // --- PDF GENERATOR (HTML2PDF) ---
+    generatePDF: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
         if (!start || !end) return Swal.fire('Atenção', 'Selecione um período.', 'warning');
 
-        Swal.fire({title: 'Gerando Relatório...', didOpen: () => Swal.showLoading()});
+        Swal.fire({title: 'Gerando PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
 
+        // 1. Busca os dados para o Relatório
         const q = query(collection(db, "registros_absenteismo"), where("data_registro", ">=", start), where("data_registro", "<=", end), orderBy("data_registro", "asc"));
         const snapshot = await getDocs(q);
 
-        if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para imprimir.', 'info');
+        if (snapshot.empty) return Swal.fire('Vazio', 'Sem dados para o PDF.', 'info');
 
-        // Preenche Dados (Cabeçalho, KPIs, Tabela)
+        // 2. Preenche o Template Invisível
         document.getElementById('rep-periodo').innerText = `${start.split('-').reverse().join('/')} a ${end.split('-').reverse().join('/')}`;
         document.getElementById('rep-emissao').innerText = new Date().toLocaleString('pt-BR');
 
@@ -128,39 +129,32 @@ window.app = {
             const d = doc.data();
             global.ef += d.efetivo; global.fa += d.faltas;
             if(d.planta === "PLANTA 3") { p3.ef += d.efetivo; p3.fa += d.faltas; } else { p4.ef += d.efetivo; p4.fa += d.faltas; }
+            
             const key = `${d.setor} (${d.turno})`;
             if(!sectorTotals[key]) sectorTotals[key] = { ef:0, fa:0, setor: d.setor, turno: d.turno };
             sectorTotals[key].ef += d.efetivo; sectorTotals[key].fa += d.faltas;
+            
+            // Dados para o Gráfico (Agrupado por setor)
             if(!chartData[d.setor]) chartData[d.setor] = { ef:0, fa:0 };
             chartData[d.setor].ef += d.efetivo; chartData[d.setor].fa += d.faltas;
         });
 
+        // Preenche KPIs
         const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) + "%" : "0.00%";
         document.getElementById('rep-kpi-global').innerText = calc(global.fa, global.ef);
         document.getElementById('rep-kpi-p3').innerText = calc(p3.fa, p3.ef);
         document.getElementById('rep-kpi-p4').innerText = calc(p4.fa, p4.ef);
 
+        // Preenche Tabela
         const tbody = document.getElementById('rep-table-body');
         tbody.innerHTML = '';
         Object.keys(sectorTotals).sort().forEach(k => {
             const t = sectorTotals[k];
-            tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${t.ef}</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
+            tbody.innerHTML += `<tr><td>${t.setor}</td><td>${t.turno}</td><td>${(t.ef/snapshot.size).toFixed(0)}*</td><td>${t.fa}</td><td><strong>${calc(t.fa, t.ef)}</strong></td></tr>`;
         });
 
-        // --- TRUQUE DO GRÁFICO ---
-        // 1. Torna o container visível (para o Chart.js medir o tamanho)
-        const reportContainer = document.getElementById('report-container');
-        const appContainer = document.getElementById('app-container');
-        
-        appContainer.style.display = 'none'; // Esconde App
-        reportContainer.style.display = 'block'; // Mostra Relatório
-
-        // 2. Gera o gráfico
+        // Gera Gráfico do Relatório
         const ctxRep = document.getElementById('rep-chart-canvas');
-        // Garante que o canvas esteja visível e limpo
-        ctxRep.style.display = 'block';
-        document.getElementById('rep-chart-img').style.display = 'none';
-
         if (reportChart) reportChart.destroy();
 
         const labels = Object.keys(chartData).sort();
@@ -168,9 +162,12 @@ window.app = {
 
         reportChart = new Chart(ctxRep, {
             type: 'bar',
-            data: { labels: labels, datasets: [{ label: '% Absenteísmo', data: values, backgroundColor: '#2563eb', borderColor: '#1e3a8a', borderWidth: 1 }] },
+            data: { 
+                labels: labels, 
+                datasets: [{ label: '% Absenteísmo', data: values, backgroundColor: '#2563eb', borderColor: '#1e3a8a', borderWidth: 1 }] 
+            },
             options: {
-                animation: false, // Sem animação para ser instantâneo
+                animation: false, // Importante: Sem animação para renderizar rápido
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true } },
@@ -178,26 +175,26 @@ window.app = {
             }
         });
 
-        // 3. Converte para Imagem e Imprime
+        // 3. Aguarda renderizar e chama html2pdf
         setTimeout(() => {
-            const imgData = reportChart.toBase64Image();
-            document.getElementById('rep-chart-img').src = imgData;
+            const element = document.getElementById('report-template');
             
-            // Troca Canvas por Imagem (Garante que sai na impressão)
-            ctxRep.style.display = 'none';
-            document.getElementById('rep-chart-img').style.display = 'block';
+            // Configurações do PDF
+            const opt = {
+                margin: 5,
+                filename: `Relatorio_Modular_${start}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 }, // Alta resolução
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
 
-            Swal.close();
-            window.print();
+            // Gera e baixa
+            html2pdf().set(opt).from(element).save().then(() => {
+                Swal.close();
+                Toast.fire({ icon: 'success', title: 'PDF baixado!' });
+            });
 
-            // 4. Restaura visão original após impressão (ou cancelamento)
-            // Um pequeno delay para garantir que o dialog de print abriu
-            setTimeout(() => {
-                reportContainer.style.display = 'none';
-                appContainer.style.display = 'flex';
-            }, 1000);
-
-        }, 800); // Espera renderizar
+        }, 800); // Delay para o gráfico aparecer
     },
 
     loadUserProfile: async (uid) => {
