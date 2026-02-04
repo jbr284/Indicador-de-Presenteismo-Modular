@@ -24,7 +24,6 @@
         .auth-box h2 { color: var(--sidebar-bg); margin-bottom: 1.5rem; font-weight: 700; }
         #app-container { display: flex; width: 100%; height: 100%; }
         aside { width: 260px; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; padding: 1.5rem 1rem; border-right: 1px solid #1e293b; flex-shrink: 0; transition: transform 0.3s; }
-        /* LOGO CLICÁVEL (SEGredo) */
         .brand { color: white; font-size: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem; padding-left: 0.5rem; cursor: pointer; user-select: none; }
         .brand i { color: var(--primary); font-size: 1.5rem; }
         nav button { background: transparent; border: none; color: var(--sidebar-text); width: 100%; padding: 0.85rem 1rem; text-align: left; cursor: pointer; border-radius: 8px; font-family: inherit; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; margin-bottom: 0.5rem; }
@@ -84,7 +83,6 @@
     <div id="app-container" style="display: none;">
         <aside>
             <div class="brand" onclick="app.secretDebug()"><i class="ph-fill ph-squares-four"></i> MODULAR</div>
-            
             <nav><button class="active" onclick="app.switchTab('tab-lancamento')"><i class="ph ph-note-pencil"></i> <span>Lançamentos</span></button><button onclick="app.switchTab('tab-indicadores')"><i class="ph ph-chart-line-up"></i> <span>Indicadores</span></button></nav>
             <div class="user-profile" onclick="app.openProfileEditor()" title="Clique para editar seu perfil"><div class="avatar-container"><img id="user-avatar-img" src="" style="display: none;"><div id="user-avatar-placeholder" class="avatar-placeholder"><i class="ph ph-user"></i></div></div><div class="user-info"><div class="user-name" id="profile-name">Carregando...</div><div class="user-role" id="profile-role">...</div></div><button class="btn-logout" onclick="event.stopPropagation(); app.logout()" title="Sair"><i class="ph ph-sign-out"></i></button></div>
         </aside>
