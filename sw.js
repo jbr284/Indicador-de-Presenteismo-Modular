@@ -1,4 +1,4 @@
-const CACHE_NAME = 'modular-absenteismo-v22';
+const CACHE_NAME = 'modular-absenteismo-v23';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,8 +8,7 @@ const ASSETS_TO_CACHE = [
   'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11',
   'https://unpkg.com/@phosphor-icons/web',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
 ];
 
 self.addEventListener('install', (event) => {
