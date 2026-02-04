@@ -64,7 +64,6 @@
         .btn-edit:hover { filter: brightness(0.9); transform: translateY(-1px); }
         .btn-print { background: #1e293b; color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .btn-print:hover { background: #0f172a; transform: translateY(-1px); }
-        
         .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
         th { background: #f8fafc; text-align: left; padding: 0.8rem 1rem; font-weight: 600; color: var(--text-light); border-bottom: 1px solid var(--border); }
@@ -80,13 +79,18 @@
         .border-t1 { border-left-color: #3b82f6; } .border-t2 { border-left-color: #f59e0b; } .border-total { border-left-color: var(--success); } .border-sector { border-left-color: #8b5cf6; } .alert-text { color: var(--danger) !important; }
         .chart-box { height: 400px; padding: 1rem; }
 
-        /* --- ESTILO DO RELATÓRIO (PDF) --- */
-        /* Isso não é display:none mais, nós o geramos fora da tela ou usamos a lib para pegar o elemento */
+        /* --- ESTILO DO RELATÓRIO (PDF) CORRIGIDO --- */
         #report-template { 
-            position: absolute; top: -9999px; left: -9999px; /* Esconde da visão, mas existe pro HTML2PDF */
-            width: 1100px; /* Largura fixa A4 Paisagem aprox */
-            background: white; padding: 20px;
-            font-family: 'Inter', sans-serif; color: #000;
+            display: none; /* Invisível por padrão */
+            position: fixed; /* Fixo na tela quando visível */
+            top: 0; left: 0;
+            width: 100%; height: 100vh;
+            background: white;
+            z-index: 9999; /* Fica acima de tudo */
+            overflow-y: auto; /* Permite rolar se necessário */
+            padding: 20px 40px;
+            font-family: 'Inter', sans-serif;
+            color: #000;
         }
 
         /* Classe que força quebra de página no PDF */
@@ -102,7 +106,7 @@
         .rep-info { text-align: right; font-size: 12px; color: #333; }
         .rep-title { font-size: 18px; font-weight: 700; text-transform: uppercase; margin: 20px 0 10px 0; border-left: 5px solid #2563eb; padding-left: 10px; }
 
-        /* Grid forçado para o PDF (Garante que fique lado a lado) */
+        /* Grid forçado para o PDF */
         .rep-grid { display: flex; gap: 15px; margin-bottom: 20px; justify-content: space-between; }
         .rep-card { flex: 1; border: 1px solid #ccc; padding: 15px; border-radius: 6px; background: #f8fafc; text-align: center; }
         .rep-card h4 { margin: 0; font-size: 12px; text-transform: uppercase; color: #64748b; }
@@ -145,7 +149,9 @@
                             <div class="input-group"><label>Efetivo (Auto)</label><input type="number" id="inp-efetivo" min="1" placeholder="..."></div>
                             <div class="input-group"><label>Qtd Faltas</label><input type="number" id="inp-faltas" min="0"></div>
                             <div class="input-group" style="display: flex; align-items: flex-end;">
-                                <button id="btn-save" class="btn btn-primary" onclick="app.saveData()" style="width: 100%;"><i class="ph-bold ph-floppy-disk"></i> <span id="btn-save-text">Salvar Registro</span></button>
+                                <button id="btn-save" class="btn btn-primary" onclick="app.saveData()" style="width: 100%;">
+                                    <i class="ph-bold ph-floppy-disk"></i> <span id="btn-save-text">Salvar Registro</span>
+                                </button>
                                 <button id="btn-cancel-edit" class="btn" onclick="app.cancelEdit()" style="display:none; margin-left:10px; background:#e2e8f0; color:#334155;">Cancelar</button>
                             </div>
                         </div>
