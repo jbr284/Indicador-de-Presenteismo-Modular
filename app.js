@@ -175,7 +175,7 @@ window.app = {
     },
 
     // ==========================================
-    // FASE 3: EXPORTAÇÃO VIVA (ALTURA DAS LINHAS AJUSTADA)
+    // FASE 3.1: EXCEL HIERÁRQUICO (Fiel à Imagem)
     // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
@@ -184,7 +184,7 @@ window.app = {
         if (!start || !end) return Swal.fire('Atenção', 'Selecione as datas inicial e final.', 'warning');
         if (marcosGlobais.length === 0) return Swal.fire('Atenção', 'Nenhum Efetivo cadastrado.', 'warning');
 
-        Swal.fire({ title: 'Gerando Excel Vivo...', text: 'Aplicando formatação gerencial...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Gerando Excel...', text: 'Construindo estrutura hierárquica...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         let cacheSemanas = {};
         let dailyDataP3 = []; 
@@ -243,31 +243,38 @@ window.app = {
 
         try {
             const workbook = new ExcelJS.Workbook();
+            const corRoxaBase = 'FF7030A0'; // Cor exata padrão de planilhas roxas 
             
-            // Função para estilizar BORDAS FORTES, FONTES e ALTURA DA LINHA em toda a planilha
-            const aplicarEstilosGlobais = (worksheet) => {
-                worksheet.eachRow((row, rowNumber) => {
-                    // Ajuste da altura da linha para respirar com as fontes maiores
-                    if (rowNumber === 1) {
-                        row.height = 35; // Cabeçalho alto e imponente
-                    } else {
-                        row.height = 25; // Dados mais espaçados
-                    }
-
-                    row.eachCell((cell) => {
+            // Função Inteligente para Estilizar
+            const aplicarEstilosGlobais = (worksheet, totalRows) => {
+                for (let r = 1; r <= totalRows; r++) {
+                    let row = worksheet.getRow(r);
+                    for (let c = 1; c <= 13; c++) {
+                        let cell = row.getCell(c);
+                        
+                        // Bordas Fortes
                         cell.border = {
                             top: { style: 'medium' }, left: { style: 'medium' },
                             bottom: { style: 'medium' }, right: { style: 'medium' }
                         };
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                         
-                        if (rowNumber === 1) {
-                            cell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+                        // Hierarquia de Títulos (As 3 primeiras linhas)
+                        if (r <= 3) {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corRoxaBase } };
+                            let fontSize = 14; 
+                            if (r === 1) fontSize = 22;
+                            if (r === 2) fontSize = 18;
+                            cell.font = { name: 'Arial', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } };
                         } else {
+                            // Linhas de Dados
+                            row.height = 25;
                             cell.font = { name: 'Arial', size: 12 };
                         }
-                    });
-                });
+                    }
+                }
+                // Garante que a palavra 'Data' na célula A1 fique com tamanho 14 e não 22
+                worksheet.getCell('A1').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
             };
 
             const addConditionalFormatting = (worksheet, ref) => {
@@ -288,15 +295,39 @@ window.app = {
             // =========================
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
-                { header: 'Data', key: 'data', width: 15 },
-                { header: 'Fab 1T (Efetivo)', key: 'f1e', width: 22 }, { header: 'Fab 1T (Faltas)', key: 'f1f', width: 20 }, { header: 'Abs Fab 1T', key: 'f1a', width: 20 },
-                { header: 'Fab 2T (Efetivo)', key: 'f2e', width: 22 }, { header: 'Fab 2T (Faltas)', key: 'f2f', width: 20 }, { header: 'Abs Fab 2T', key: 'f2a', width: 20 },
-                { header: 'Est 1T (Efetivo)', key: 'e1e', width: 22 }, { header: 'Est 1T (Faltas)', key: 'e1f', width: 20 }, { header: 'Abs Est 1T', key: 'e1a', width: 20 },
-                { header: 'Est 2T (Efetivo)', key: 'e2e', width: 22 }, { header: 'Est 2T (Faltas)', key: 'e2f', width: 20 }, { header: 'Abs Est 2T', key: 'e2a', width: 20 }
+                { key: 'data', width: 16 },
+                { key: 'f1e', width: 16 }, { key: 'f1f', width: 16 }, { key: 'f1a', width: 18 },
+                { key: 'f2e', width: 16 }, { key: 'f2f', width: 16 }, { key: 'f2a', width: 18 },
+                { key: 'e1e', width: 16 }, { key: 'e1f', width: 16 }, { key: 'e1a', width: 18 },
+                { key: 'e2e', width: 16 }, { key: 'e2f', width: 16 }, { key: 'e2a', width: 18 }
             ];
 
-            wsP3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+            // Desenhando o Nível 1 (Setores - Tamanho 22)
+            const r1_3 = wsP3.getRow(1);
+            r1_3.height = 40;
+            r1_3.getCell(2).value = 'FABRICAÇÃO';
+            r1_3.getCell(8).value = 'MONTAGEM ESTRUTURAL';
+            wsP3.mergeCells('B1:G1');
+            wsP3.mergeCells('H1:M1');
 
+            // Desenhando o Nível 2 (Turnos - Tamanho 18)
+            const r2_3 = wsP3.getRow(2);
+            r2_3.height = 30;
+            r2_3.getCell(2).value = '1º TURNO';
+            r2_3.getCell(5).value = '2º TURNO';
+            r2_3.getCell(8).value = '1º TURNO';
+            r2_3.getCell(11).value = '2º TURNO';
+            wsP3.mergeCells('B2:D2'); wsP3.mergeCells('E2:G2'); wsP3.mergeCells('H2:J2'); wsP3.mergeCells('K2:M2');
+
+            // Desenhando o Nível 3 (Data e Métricas - Tamanho 14)
+            const r3_3 = wsP3.getRow(3);
+            r3_3.height = 25;
+            r3_3.getCell(1).value = 'Data';
+            wsP3.mergeCells('A1:A3');
+            const titulosL3 = ['EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.'];
+            titulosL3.forEach((t, index) => r3_3.getCell(index + 2).value = t);
+
+            // Injetando Dados Matemáticos
             dailyDataP3.forEach((d, i) => {
                 let row = wsP3.addRow({
                     data: d.data,
@@ -305,7 +336,7 @@ window.app = {
                     e1e: d.est1_ef, e1f: d.est1_fa,
                     e2e: d.est2_ef, e2f: d.est2_fa
                 });
-                let rIdx = i + 2;
+                let rIdx = i + 4; // Os dados agora começam na linha 4
                 row.getCell('D').value = { formula: `IF(B${rIdx}>0, C${rIdx}/B${rIdx}, 0)` };
                 row.getCell('G').value = { formula: `IF(E${rIdx}>0, F${rIdx}/E${rIdx}, 0)` };
                 row.getCell('J').value = { formula: `IF(H${rIdx}>0, I${rIdx}/H${rIdx}, 0)` };
@@ -314,26 +345,45 @@ window.app = {
                 ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
             });
 
-            aplicarEstilosGlobais(wsP3);
-            let lastRowP3 = dailyDataP3.length + 1;
-            addConditionalFormatting(wsP3, `D2:D${lastRowP3}`);
-            addConditionalFormatting(wsP3, `G2:G${lastRowP3}`);
-            addConditionalFormatting(wsP3, `J2:J${lastRowP3}`);
-            addConditionalFormatting(wsP3, `M2:M${lastRowP3}`);
+            let lastRowP3 = dailyDataP3.length + 3;
+            aplicarEstilosGlobais(wsP3, lastRowP3);
+            addConditionalFormatting(wsP3, `D4:D${lastRowP3}`);
+            addConditionalFormatting(wsP3, `G4:G${lastRowP3}`);
+            addConditionalFormatting(wsP3, `J4:J${lastRowP3}`);
+            addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
             // =========================
             // ABA: PLANTA 4
             // =========================
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
-                { header: 'Data', key: 'data', width: 15 },
-                { header: 'Mont 1T (Efetivo)', key: 'm1e', width: 23 }, { header: 'Mont 1T (Faltas)', key: 'm1f', width: 21 }, { header: 'Abs Mont 1T', key: 'm1a', width: 21 },
-                { header: 'Mont 2T (Efetivo)', key: 'm2e', width: 23 }, { header: 'Mont 2T (Faltas)', key: 'm2f', width: 21 }, { header: 'Abs Mont 2T', key: 'm2a', width: 21 },
-                { header: 'Painel 1T (Efetivo)', key: 'p1e', width: 23 }, { header: 'Painel 1T (Faltas)', key: 'p1f', width: 21 }, { header: 'Abs Painel 1T', key: 'p1a', width: 21 },
-                { header: 'Painel 2T (Efetivo)', key: 'p2e', width: 23 }, { header: 'Painel 2T (Faltas)', key: 'p2f', width: 21 }, { header: 'Abs Painel 2T', key: 'p2a', width: 21 }
+                { key: 'data', width: 16 },
+                { key: 'm1e', width: 16 }, { key: 'm1f', width: 16 }, { key: 'm1a', width: 18 },
+                { key: 'm2e', width: 16 }, { key: 'm2f', width: 16 }, { key: 'm2a', width: 18 },
+                { key: 'p1e', width: 16 }, { key: 'p1f', width: 16 }, { key: 'p1a', width: 18 },
+                { key: 'p2e', width: 16 }, { key: 'p2f', width: 16 }, { key: 'p2a', width: 18 }
             ];
 
-            wsP4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+            const r1_4 = wsP4.getRow(1);
+            r1_4.height = 40;
+            r1_4.getCell(2).value = 'MONTAGEM FINAL';
+            r1_4.getCell(8).value = 'PAINÉIS';
+            wsP4.mergeCells('B1:G1');
+            wsP4.mergeCells('H1:M1');
+
+            const r2_4 = wsP4.getRow(2);
+            r2_4.height = 30;
+            r2_4.getCell(2).value = '1º TURNO';
+            r2_4.getCell(5).value = '2º TURNO';
+            r2_4.getCell(8).value = '1º TURNO';
+            r2_4.getCell(11).value = '2º TURNO';
+            wsP4.mergeCells('B2:D2'); wsP4.mergeCells('E2:G2'); wsP4.mergeCells('H2:J2'); wsP4.mergeCells('K2:M2');
+
+            const r3_4 = wsP4.getRow(3);
+            r3_4.height = 25;
+            r3_4.getCell(1).value = 'Data';
+            wsP4.mergeCells('A1:A3');
+            titulosL3.forEach((t, index) => r3_4.getCell(index + 2).value = t);
 
             dailyDataP4.forEach((d, i) => {
                 let row = wsP4.addRow({
@@ -343,7 +393,7 @@ window.app = {
                     p1e: d.pain1_ef, p1f: d.pain1_fa,
                     p2e: d.pain2_ef, p2f: d.pain2_fa
                 });
-                let rIdx = i + 2;
+                let rIdx = i + 4;
                 row.getCell('D').value = { formula: `IF(B${rIdx}>0, C${rIdx}/B${rIdx}, 0)` };
                 row.getCell('G').value = { formula: `IF(E${rIdx}>0, F${rIdx}/E${rIdx}, 0)` };
                 row.getCell('J').value = { formula: `IF(H${rIdx}>0, I${rIdx}/H${rIdx}, 0)` };
@@ -352,12 +402,12 @@ window.app = {
                 ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
             });
 
-            aplicarEstilosGlobais(wsP4);
-            let lastRowP4 = dailyDataP4.length + 1;
-            addConditionalFormatting(wsP4, `D2:D${lastRowP4}`);
-            addConditionalFormatting(wsP4, `G2:G${lastRowP4}`);
-            addConditionalFormatting(wsP4, `J2:J${lastRowP4}`);
-            addConditionalFormatting(wsP4, `M2:M${lastRowP4}`);
+            let lastRowP4 = dailyDataP4.length + 3;
+            aplicarEstilosGlobais(wsP4, lastRowP4);
+            addConditionalFormatting(wsP4, `D4:D${lastRowP4}`);
+            addConditionalFormatting(wsP4, `G4:G${lastRowP4}`);
+            addConditionalFormatting(wsP4, `J4:J${lastRowP4}`);
+            addConditionalFormatting(wsP4, `M4:M${lastRowP4}`);
 
             // Download Final
             const buffer = await workbook.xlsx.writeBuffer();
@@ -365,7 +415,7 @@ window.app = {
             saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
 
             Swal.close();
-            Toast.fire({ icon: 'success', title: 'Planilha Excel Viva Exportada!' });
+            Toast.fire({ icon: 'success', title: 'Planilha Exportada!' });
 
         } catch (err) {
             console.error("Erro ao gerar Excel:", err);
