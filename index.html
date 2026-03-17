@@ -151,12 +151,14 @@
         </div>
     </div>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <script type="module" src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }
         setInterval(() => { const el = document.getElementById('current-datetime'); if(el) el.innerText = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }, 1000);
         
-        // Controlador enxuto das Sanfonas
         function toggleAccordion(id) {
             const content = document.getElementById(id);
             const header = content.previousElementSibling;
