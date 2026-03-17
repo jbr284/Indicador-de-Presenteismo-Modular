@@ -15,7 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="stylesheet" href="style.css"> </head>
+    <link rel="stylesheet" href="style.css">
+</head>
 <body>
     <div id="auth-overlay">
         <div class="auth-box">
@@ -56,21 +57,41 @@
                     <div class="card">
                         <div style="margin-bottom:1.2rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.8rem;">
                             <h3 style="border:none; margin:0; padding:0; display:flex; align-items:center; gap:8px;"><i class="ph ph-users-three"></i> Marco de Efetivo (Capacidade)</h3>
-                            <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 8px;">Defina o número de colaboradores do setor. O sistema cruzará este efetivo com as faltas lançadas no <b>Contador de Presença</b> a partir da data de vigência selecionada.</p>
+                            <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 8px;">Defina a data de vigência e preencha a capacidade atual de toda a fábrica de uma só vez.</p>
                         </div>
-                        <div class="form-grid">
-                            <div class="input-group"><label>Planta</label><select id="inp-planta" onchange="app.updateSectors()"><option value="">Selecione...</option><option value="PLANTA 3">PLANTA 3</option><option value="PLANTA 4">PLANTA 4</option></select></div>
-                            <div class="input-group"><label>Turno</label><select id="inp-turno"><option value="1º TURNO">1º TURNO</option><option value="2º TURNO">2º TURNO</option></select></div>
-                            <div class="input-group"><label>Setor</label><select id="inp-setor"><option value="">Selecione...</option></select></div>
-                            <div class="input-group"><label>Válido a partir de (Vigência)</label><input type="date" id="inp-data"></div>
-                            <div class="input-group"><label>Número do Efetivo</label><input type="number" id="inp-efetivo" min="1" placeholder="Ex: 50"></div>
-                            
-                            <div class="input-group" style="display: flex; align-items: flex-end;">
-                                <button id="btn-save" class="btn btn-primary" onclick="app.saveData()" style="width: 100%;">
-                                    <i class="ph-bold ph-floppy-disk"></i> <span id="btn-save-text">Gravar Efetivo</span>
-                                </button>
-                                <button id="btn-cancel-edit" class="btn" onclick="app.cancelEdit()" style="display:none; margin-left:10px; background:#e2e8f0; color:#334155;">Cancelar</button>
+                        
+                        <div class="input-group" style="margin-bottom: 1.5rem; max-width: 250px;">
+                            <label style="color: var(--primary); font-weight: 700;"><i class="ph-bold ph-calendar"></i> Válido a partir de (Vigência)</label>
+                            <input type="date" id="inp-data" style="border-color: var(--primary); border-width: 2px; background-color: #f8fafc;">
+                        </div>
+
+                        <div class="form-grid-efetivo">
+                            <div class="efetivo-box border-t1">
+                                <h4><i class="ph-fill ph-factory"></i> PLANTA 3</h4>
+                                <div class="grid-2-col">
+                                    <div class="input-group"><label>Fabricação (1º T)</label><input type="number" id="ef-fab-1" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Fabricação (2º T)</label><input type="number" id="ef-fab-2" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Mont. Estrutural (1º T)</label><input type="number" id="ef-est-1" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Mont. Estrutural (2º T)</label><input type="number" id="ef-est-2" min="1" placeholder="Qtd"></div>
+                                </div>
                             </div>
+
+                            <div class="efetivo-box border-t2">
+                                <h4><i class="ph-fill ph-factory"></i> PLANTA 4</h4>
+                                <div class="grid-2-col">
+                                    <div class="input-group"><label>Montagem final (1º T)</label><input type="number" id="ef-mont-1" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Montagem final (2º T)</label><input type="number" id="ef-mont-2" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Painéis (1º T)</label><input type="number" id="ef-pain-1" min="1" placeholder="Qtd"></div>
+                                    <div class="input-group"><label>Painéis (2º T)</label><input type="number" id="ef-pain-2" min="1" placeholder="Qtd"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
+                            <button id="btn-cancel-edit" class="btn" onclick="app.cancelEdit()" style="display:none; margin-right:10px; background:#e2e8f0; color:#334155;">Cancelar Edição</button>
+                            <button id="btn-save" class="btn btn-primary" onclick="app.saveData()" style="min-width: 250px;">
+                                <i class="ph-bold ph-floppy-disk"></i> <span id="btn-save-text">Gravar Efetivo da Fábrica</span>
+                            </button>
                         </div>
                     </div>
 
@@ -135,7 +156,7 @@
         if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }
         setInterval(() => { const el = document.getElementById('current-datetime'); if(el) el.innerText = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }, 1000);
         
-        // Controlador simples das Sanfonas
+        // Controlador enxuto das Sanfonas
         function toggleAccordion(id) {
             const content = document.getElementById(id);
             const header = content.previousElementSibling;
