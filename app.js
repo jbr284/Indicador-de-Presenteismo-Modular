@@ -175,7 +175,7 @@ window.app = {
     },
 
     // ==========================================
-    // FASE 3: EXPORTAÇÃO VIVA (ATUALIZADA COM ESTILOS)
+    // FASE 3: EXPORTAÇÃO VIVA (ALTURA DAS LINHAS AJUSTADA)
     // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
@@ -244,18 +244,23 @@ window.app = {
         try {
             const workbook = new ExcelJS.Workbook();
             
-            // Função para estilizar BORDAS FORTES e FONTES em toda a planilha
+            // Função para estilizar BORDAS FORTES, FONTES e ALTURA DA LINHA em toda a planilha
             const aplicarEstilosGlobais = (worksheet) => {
                 worksheet.eachRow((row, rowNumber) => {
+                    // Ajuste da altura da linha para respirar com as fontes maiores
+                    if (rowNumber === 1) {
+                        row.height = 35; // Cabeçalho alto e imponente
+                    } else {
+                        row.height = 25; // Dados mais espaçados
+                    }
+
                     row.eachCell((cell) => {
-                        // Borda 'medium' é a borda forte padrão elegante do Excel
                         cell.border = {
                             top: { style: 'medium' }, left: { style: 'medium' },
                             bottom: { style: 'medium' }, right: { style: 'medium' }
                         };
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                         
-                        // Arial 14 Negrito para o Cabeçalho, Arial 12 para os Dados
                         if (rowNumber === 1) {
                             cell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
                         } else {
@@ -265,7 +270,6 @@ window.app = {
                 });
             };
 
-            // Formatação Condicional (Vermelho vivo com Fonte Branca Negrito)
             const addConditionalFormatting = (worksheet, ref) => {
                 worksheet.addConditionalFormatting({
                     ref: ref,
@@ -291,7 +295,6 @@ window.app = {
                 { header: 'Est 2T (Efetivo)', key: 'e2e', width: 22 }, { header: 'Est 2T (Faltas)', key: 'e2f', width: 20 }, { header: 'Abs Est 2T', key: 'e2a', width: 20 }
             ];
 
-            // Fundo azul escuro para o cabeçalho para dar contraste com Arial 14 Branco
             wsP3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
 
             dailyDataP3.forEach((d, i) => {
