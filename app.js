@@ -174,7 +174,7 @@ window.app = {
     },
 
     // ==========================================
-    // FASE 3.2: O EXCEL GERENCIAL COMPLETO (3 ABAS)
+    // EXPORTAÇÃO EXCEL (APENAS ABAS DE DETALHES 100% FORMATADAS)
     // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
@@ -183,13 +183,11 @@ window.app = {
         if (!start || !end) return Swal.fire('Atenção', 'Selecione as datas inicial e final.', 'warning');
         if (marcosGlobais.length === 0) return Swal.fire('Atenção', 'Nenhum Efetivo cadastrado.', 'warning');
 
-        Swal.fire({ title: 'Gerando Relatório...', text: 'Construindo Visão Geral e extraindo Gráfico...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Gerando Relatório...', text: 'Construindo abas de detalhes...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         let cacheSemanas = {};
         let dailyDataP3 = []; 
         let dailyDataP4 = []; 
-        let totP3Ef = 0, totP3Fa = 0;
-        let totP4Ef = 0, totP4Fa = 0;
 
         let currentDate = new Date(start + "T12:00:00");
         let endDateObj = new Date(end + "T12:00:00");
@@ -219,27 +217,21 @@ window.app = {
                             return (f === "" || isNaN(f)) ? 0 : parseInt(f);
                         };
 
-                        let dP3 = {
+                        dailyDataP3.push({
                             data: dateStr.split('-').reverse().join('/'),
                             fab1_ef: marco.fab_1 || 0, fab1_fa: extrairFaltas('Fabricação', '1º'),
                             fab2_ef: marco.fab_2 || 0, fab2_fa: extrairFaltas('Fabricação', '2º'),
                             est1_ef: marco.est_1 || 0, est1_fa: extrairFaltas('Estrutural', '1º'),
                             est2_ef: marco.est_2 || 0, est2_fa: extrairFaltas('Estrutural', '2º')
-                        };
-                        dailyDataP3.push(dP3);
-                        totP3Ef += (dP3.fab1_ef + dP3.fab2_ef + dP3.est1_ef + dP3.est2_ef);
-                        totP3Fa += (dP3.fab1_fa + dP3.fab2_fa + dP3.est1_fa + dP3.est2_fa);
+                        });
 
-                        let dP4 = {
+                        dailyDataP4.push({
                             data: dateStr.split('-').reverse().join('/'),
                             mont1_ef: marco.mont_1 || 0, mont1_fa: extrairFaltas('Mont. Final', '1º'),
                             mont2_ef: marco.mont_2 || 0, mont2_fa: extrairFaltas('Mont. Final', '2º'),
                             pain1_ef: marco.pain_1 || 0, pain1_fa: extrairFaltas('Painéis', '1º'),
                             pain2_ef: marco.pain_2 || 0, pain2_fa: extrairFaltas('Painéis', '2º')
-                        };
-                        dailyDataP4.push(dP4);
-                        totP4Ef += (dP4.mont1_ef + dP4.mont2_ef + dP4.pain1_ef + dP4.pain2_ef);
-                        totP4Fa += (dP4.mont1_fa + dP4.mont2_fa + dP4.pain1_fa + dP4.pain2_fa);
+                        });
                     }
                 }
             }
@@ -284,66 +276,7 @@ window.app = {
                 });
             };
 
-            // ========================= ABA 1: VISÃO GERAL (DASHBOARD) =========================
-            const wsResumo = workbook.addWorksheet('Visão Geral');
-            wsResumo.columns = [ { width: 3 }, { width: 28 }, { width: 28 }, { width: 28 } ];
-
-            // Título
-            wsResumo.mergeCells('B2:D2');
-            wsResumo.getCell('B2').value = 'RELATÓRIO EXECUTIVO DE ABSENTEÍSMO';
-            wsResumo.getCell('B2').font = { name: 'Arial', size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
-            wsResumo.getCell('B2').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }; // Azul Modular
-            wsResumo.getCell('B2').alignment = { vertical: 'middle', horizontal: 'center' };
-            wsResumo.getRow(2).height = 40;
-
-            // Período
-            wsResumo.getCell('B4').value = 'PERÍODO AVALIADO:';
-            wsResumo.getCell('B4').font = { name: 'Arial', size: 12, bold: true };
-            wsResumo.getCell('B4').alignment = { horizontal: 'right' };
-            wsResumo.getCell('C4').value = `${start.split('-').reverse().join('/')} até ${end.split('-').reverse().join('/')}`;
-            wsResumo.getCell('C4').font = { name: 'Arial', size: 12 };
-            wsResumo.getCell('C4').alignment = { horizontal: 'left' };
-
-            // Função para desenhar os Cards
-            const criarCard = (col, titulo, ef, fa, corBg) => {
-                wsResumo.getCell(`${col}6`).value = titulo;
-                wsResumo.getCell(`${col}6`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corBg } };
-                wsResumo.getCell(`${col}6`).font = { name: 'Arial', bold: true, color: { argb: 'FFFFFFFF' }, size: 14 };
-                
-                wsResumo.getCell(`${col}7`).value = `Efetivo Acumulado: ${ef}`;
-                wsResumo.getCell(`${col}8`).value = `Faltas Acumuladas: ${fa}`;
-                
-                let abs = ef > 0 ? fa / ef : 0;
-                wsResumo.getCell(`${col}9`).value = abs;
-                wsResumo.getCell(`${col}9`).numFmt = '0.00%';
-                
-                let corFonte = abs > 0.05 ? 'FFFF0000' : 'FF334155'; // Fica vermelho se > 5%
-                wsResumo.getCell(`${col}9`).font = { name: 'Arial', bold: true, size: 20, color: { argb: corFonte } };
-
-                ['6','7','8','9'].forEach(r => {
-                   wsResumo.getCell(`${col}${r}`).alignment = { vertical: 'middle', horizontal: 'center' };
-                   wsResumo.getCell(`${col}${r}`).border = { top: {style:'medium'}, bottom: {style:'medium'}, left: {style:'medium'}, right: {style:'medium'} };
-                   wsResumo.getRow(r).height = 30;
-                });
-            };
-
-            // Desenhando os Cards
-            criarCard('B', 'GLOBAL (MODULAR)', (totP3Ef + totP4Ef), (totP3Fa + totP4Fa), 'FF2563EB');
-            criarCard('C', 'PLANTA 3', totP3Ef, totP3Fa, 'FF7030A0');
-            criarCard('D', 'PLANTA 4', totP4Ef, totP4Fa, 'FF7030A0');
-
-            // Injetando a FOTO do Gráfico
-            const canvas = document.getElementById('chart-evolution');
-            if (canvas) {
-                const imgData = canvas.toDataURL('image/png', 1.0);
-                const imageId = workbook.addImage({ base64: imgData, extension: 'png' });
-                wsResumo.addImage(imageId, {
-                    tl: { col: 1, row: 10 }, // Começa na coluna B (index 1), linha 11
-                    ext: { width: 750, height: 380 } // Tamanho da imagem no Excel
-                });
-            }
-
-            // ========================= ABA 2: PLANTA 3 =========================
+            // ========================= ABA: PLANTA 3 =========================
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
                 { key: 'data', width: 16 },
@@ -387,7 +320,7 @@ window.app = {
             addConditionalFormatting(wsP3, `D4:D${lastRowP3}`); addConditionalFormatting(wsP3, `G4:G${lastRowP3}`);
             addConditionalFormatting(wsP3, `J4:J${lastRowP3}`); addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
-            // ========================= ABA 3: PLANTA 4 =========================
+            // ========================= ABA: PLANTA 4 =========================
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
                 { key: 'data', width: 16 },
@@ -436,7 +369,7 @@ window.app = {
             saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
 
             Swal.close();
-            Toast.fire({ icon: 'success', title: 'Relatório Executivo Exportado!' });
+            Toast.fire({ icon: 'success', title: 'Relatório Exportado!' });
 
         } catch (err) {
             console.error("Erro ao gerar Excel:", err);
