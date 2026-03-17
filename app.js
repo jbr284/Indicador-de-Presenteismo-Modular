@@ -135,8 +135,7 @@ window.app = {
                 "Mont. Estrutural": { "1º TURNO": { ef: 0, fa: 0 }, "2º TURNO": { ef: 0, fa: 0 } },
                 "Montagem final": { "1º TURNO": { ef: 0, fa: 0 }, "2º TURNO": { ef: 0, fa: 0 } },
                 "Painéis": { "1º TURNO": { ef: 0, fa: 0 }, "2º TURNO": { ef: 0, fa: 0 } }
-            },
-            evolucao: {} 
+            }
         };
 
         let currentDate = new Date(start + "T12:00:00");
@@ -175,7 +174,7 @@ window.app = {
     },
 
     // ==========================================
-    // FASE 3.1: EXCEL HIERÁRQUICO (Fiel à Imagem)
+    // FASE 3.1: EXCEL HIERÁRQUICO (Fiel à Imagem) - INTACTO
     // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
@@ -243,23 +242,20 @@ window.app = {
 
         try {
             const workbook = new ExcelJS.Workbook();
-            const corRoxaBase = 'FF7030A0'; // Cor exata padrão de planilhas roxas 
+            const corRoxaBase = 'FF7030A0'; 
             
-            // Função Inteligente para Estilizar
             const aplicarEstilosGlobais = (worksheet, totalRows) => {
                 for (let r = 1; r <= totalRows; r++) {
                     let row = worksheet.getRow(r);
                     for (let c = 1; c <= 13; c++) {
                         let cell = row.getCell(c);
                         
-                        // Bordas Fortes
                         cell.border = {
                             top: { style: 'medium' }, left: { style: 'medium' },
                             bottom: { style: 'medium' }, right: { style: 'medium' }
                         };
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                         
-                        // Hierarquia de Títulos (As 3 primeiras linhas)
                         if (r <= 3) {
                             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: corRoxaBase } };
                             let fontSize = 14; 
@@ -267,13 +263,11 @@ window.app = {
                             if (r === 2) fontSize = 18;
                             cell.font = { name: 'Arial', size: fontSize, bold: true, color: { argb: 'FFFFFFFF' } };
                         } else {
-                            // Linhas de Dados
                             row.height = 25;
                             cell.font = { name: 'Arial', size: 12 };
                         }
                     }
                 }
-                // Garante que a palavra 'Data' na célula A1 fique com tamanho 14 e não 22
                 worksheet.getCell('A1').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
             };
 
@@ -290,9 +284,7 @@ window.app = {
                 });
             };
 
-            // =========================
-            // ABA: PLANTA 3
-            // =========================
+            // ========================= ABA: PLANTA 3 =========================
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
                 { key: 'data', width: 16 },
@@ -302,7 +294,6 @@ window.app = {
                 { key: 'e2e', width: 16 }, { key: 'e2f', width: 16 }, { key: 'e2a', width: 18 }
             ];
 
-            // Desenhando o Nível 1 (Setores - Tamanho 22)
             const r1_3 = wsP3.getRow(1);
             r1_3.height = 40;
             r1_3.getCell(2).value = 'FABRICAÇÃO';
@@ -310,7 +301,6 @@ window.app = {
             wsP3.mergeCells('B1:G1');
             wsP3.mergeCells('H1:M1');
 
-            // Desenhando o Nível 2 (Turnos - Tamanho 18)
             const r2_3 = wsP3.getRow(2);
             r2_3.height = 30;
             r2_3.getCell(2).value = '1º TURNO';
@@ -319,7 +309,6 @@ window.app = {
             r2_3.getCell(11).value = '2º TURNO';
             wsP3.mergeCells('B2:D2'); wsP3.mergeCells('E2:G2'); wsP3.mergeCells('H2:J2'); wsP3.mergeCells('K2:M2');
 
-            // Desenhando o Nível 3 (Data e Métricas - Tamanho 14)
             const r3_3 = wsP3.getRow(3);
             r3_3.height = 25;
             r3_3.getCell(1).value = 'Data';
@@ -327,7 +316,6 @@ window.app = {
             const titulosL3 = ['EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.', 'EFETIVO', 'FALTAS', 'ABSENT.'];
             titulosL3.forEach((t, index) => r3_3.getCell(index + 2).value = t);
 
-            // Injetando Dados Matemáticos
             dailyDataP3.forEach((d, i) => {
                 let row = wsP3.addRow({
                     data: d.data,
@@ -336,7 +324,7 @@ window.app = {
                     e1e: d.est1_ef, e1f: d.est1_fa,
                     e2e: d.est2_ef, e2f: d.est2_fa
                 });
-                let rIdx = i + 4; // Os dados agora começam na linha 4
+                let rIdx = i + 4; 
                 row.getCell('D').value = { formula: `IF(B${rIdx}>0, C${rIdx}/B${rIdx}, 0)` };
                 row.getCell('G').value = { formula: `IF(E${rIdx}>0, F${rIdx}/E${rIdx}, 0)` };
                 row.getCell('J').value = { formula: `IF(H${rIdx}>0, I${rIdx}/H${rIdx}, 0)` };
@@ -352,9 +340,7 @@ window.app = {
             addConditionalFormatting(wsP3, `J4:J${lastRowP3}`);
             addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
-            // =========================
-            // ABA: PLANTA 4
-            // =========================
+            // ========================= ABA: PLANTA 4 =========================
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
                 { key: 'data', width: 16 },
@@ -425,8 +411,6 @@ window.app = {
 };
 
 function processarDiaUnico(semanaApp1, marco, dayIndex, stats, dateStr) {
-    if(!stats.evolucao[dateStr]) stats.evolucao[dateStr] = { ef:0, fa:0 };
-
     const mapConfig = [
         { areaA1: 'Fabricação', turnoA1: '1º', p: 'PLANTA 3', s: 'Fabricação', t: '1º TURNO', key: 'fab_1' },
         { areaA1: 'Fabricação', turnoA1: '2º', p: 'PLANTA 3', s: 'Fabricação', t: '2º TURNO', key: 'fab_2' },
@@ -449,7 +433,6 @@ function processarDiaUnico(semanaApp1, marco, dayIndex, stats, dateStr) {
                 stats.global.ef += efetivo; stats.global.fa += faltas;
                 stats.plantas[cfg.p].ef += efetivo; stats.plantas[cfg.p].fa += faltas;
                 stats.setores[cfg.s][cfg.t].ef += efetivo; stats.setores[cfg.s][cfg.t].fa += faltas;
-                stats.evolucao[dateStr].ef += efetivo; stats.evolucao[dateStr].fa += faltas;
             }
         }
     });
@@ -488,17 +471,40 @@ function renderDashboardUI(stats, daysCount) {
 
     const ctx = document.getElementById('chart-evolution'); 
     if (chartEvolution) chartEvolution.destroy(); 
-    const keys = Object.keys(stats.evolucao).sort();
-    const vals = keys.map(k => calc(stats.evolucao[k].fa, stats.evolucao[k].ef)); 
-    const formatDates = keys.map(k => k.split('-').reverse().slice(0,2).join('/'));
+    
+    // NOVO GRÁFICO: CONSOLIDADO POR SETOR NO PERÍODO (1º + 2º TURNO)
+    const setoresNomes = Object.keys(stats.setores).sort();
+    const valoresSetores = setoresNomes.map(k => {
+        const t1 = stats.setores[k]["1º TURNO"];
+        const t2 = stats.setores[k]["2º TURNO"];
+        const totEf = t1.ef + t2.ef;
+        const totFa = t1.fa + t2.fa;
+        return totEf > 0 ? parseFloat(((totFa/totEf)*100).toFixed(2)) : 0;
+    });
+
+    // Paleta de Cores: Azul, Laranja, Verde e Roxo
+    const paletaCores = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6'];
 
     chartEvolution = new Chart(ctx, { 
         type: 'bar', 
-        data: { labels: formatDates, datasets: [{ label: 'Absenteísmo Diário (%)', data: vals, backgroundColor: '#3b82f6', barPercentage: 0.6, borderRadius:6 }] }, 
+        data: { 
+            labels: setoresNomes, 
+            datasets: [{ 
+                label: 'Absenteísmo Consolidado (%)', 
+                data: valoresSetores, 
+                backgroundColor: paletaCores, 
+                barPercentage: 0.6, 
+                borderRadius:6 
+            }] 
+        }, 
         options: { 
             responsive: true, maintainAspectRatio: false, 
             scales: { y: { beginAtZero: true, grid:{color:'#f1f5f9'} }, x:{grid:{display:false}} }, 
-            plugins: { legend:{display:false}, title:{display:true, text:'Evolução Diária (Planta Inteira)', font:{size:16, family:"'Inter'", weight:600}, color:'#334155'}, datalabels:{color:'#334155', anchor:'end', align:'top', offset:-4, font:{weight:'bold'}, formatter: v => v>0?v+'%':''} } 
+            plugins: { 
+                legend:{display:false}, 
+                title:{display:true, text:'Absenteísmo Consolidado por Setor no Período', font:{size:16, family:"'Inter'", weight:600}, color:'#334155'}, 
+                datalabels:{color:'#334155', anchor:'end', align:'top', offset:-4, font:{weight:'bold'}, formatter: v => v>0?v+'%':'0%'} 
+            } 
         } 
     });
 }
@@ -533,7 +539,8 @@ onAuthStateChanged(auth, u => {
             document.querySelector('#table-p4 tbody').innerHTML = hP4 || `<tr><td colspan=\"5\" style=\"text-align:center;\">Sem registros.</td></tr>`;
         });
         
-        document.getElementById('dash-start').value = "2026-03-01"; 
+        // Ponto 1 Atendido: Data Inicial cravada em 01/01/2026 sempre que abre
+        document.getElementById('dash-start').value = "2026-01-01"; 
         const today = new Date();
         const localToday = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         document.getElementById('dash-end').value = localToday;
