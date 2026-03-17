@@ -16,7 +16,7 @@ const db = getFirestore(appFire);
 const auth = getAuth(appFire);
 
 let chartEvolution = null;
-let marcosGlobais = []; // Guarda a linha do tempo dos Efetivos Base
+let marcosGlobais = []; 
 
 Chart.register(ChartDataLabels);
 
@@ -25,7 +25,6 @@ const Toast = Swal.mixin({
     didOpen: (toast) => { toast.onmouseenter = Swal.stopTimer; toast.onmouseleave = Swal.resumeTimer; }
 });
 
-// --- TRADUTOR DE CALENDÁRIO (A PONTE COM O APP 1) ---
 function getWeekId(dateObj) {
     const diaDaSemana = dateObj.getDay();
     const diffParaSegunda = diaDaSemana === 0 ? -6 : 1 - diaDaSemana;
@@ -59,7 +58,6 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // --- CRUD DO NOVO EFETIVO EM LOTE ---
     saveData: async () => {
         const d = document.getElementById('inp-data').value;
         const f1 = parseInt(document.getElementById('ef-fab-1').value) || 0;
@@ -72,23 +70,16 @@ window.app = {
         const p2 = parseInt(document.getElementById('ef-pain-2').value) || 0;
 
         if (!d) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione a data de vigência.' });
-        
-        // Evitar zerar a fábrica sem querer
         if (f1+f2+e1+e2+m1+m2+p1+p2 === 0) return Swal.fire({ icon: 'error', title: 'Fábrica Vazia?', text: 'Preencha pelo menos um setor com capacidade válida.' });
 
         try {
-            // Salva um documento único com a Data como ID
             await setDoc(doc(db, "efetivos_vigencia", d), {
                 fab_1: f1, fab_2: f2, est_1: e1, est_2: e2,
                 mont_1: m1, mont_2: m2, pain_1: p1, pain_2: p2,
                 updated_at: Timestamp.now(), usuario_id: auth.currentUser.uid
             });
-            
             Toast.fire({ icon: 'success', title: 'Efetivo Global Salvo!' });
-            
-            // Limpar campos
             ['ef-fab-1','ef-fab-2','ef-est-1','ef-est-2','ef-mont-1','ef-mont-2','ef-pain-1','ef-pain-2'].forEach(id => document.getElementById(id).value = '');
-            
         } catch (e) { console.error(e); Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao salvar no banco.' }); }
     },
 
@@ -98,7 +89,6 @@ window.app = {
         });
     },
 
-    // --- NAVEGAÇÃO E PERFIL ---
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
@@ -127,19 +117,16 @@ window.app = {
         if(v) { await setDoc(doc(db,"users",uid),v,{merge:true}); Toast.fire({icon:'success',title:'Salvo'}); app.loadUserProfile(uid); }
     },
 
-    // --- O MOTOR CROSS-DATABASE (FUSÃO DE DADOS) ---
     updateDashboard: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
         if (!start || !end) return;
 
-        if (marcosGlobais.length === 0) {
-            return Swal.fire('Sem Efetivo', 'Cadastre o primeiro Marco de Efetivo na outra aba para gerar os gráficos.', 'info');
-        }
+        if (marcosGlobais.length === 0) return Swal.fire('Sem Efetivo', 'Cadastre o primeiro Marco de Efetivo na outra aba.', 'info');
 
-        Swal.fire({ title: 'Cruzando Dados...', text: 'Buscando faltas no Contador de Presença', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Cruzando Dados...', text: 'Buscando faltas...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        let cacheSemanas = {}; // Evita baixar a mesma semana 5 vezes
+        let cacheSemanas = {}; 
         let stats = {
             global: { ef: 0, fa: 0 },
             plantas: { "PLANTA 3": { ef: 0, fa: 0 }, "PLANTA 4": { ef: 0, fa: 0 } },
@@ -158,16 +145,13 @@ window.app = {
 
         while (currentDate <= endDateObj) {
             let dayOfWeek = currentDate.getDay();
-            if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Apenas Seg a Sex
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) { 
                 let dateStr = currentDate.toISOString().split('T')[0];
                 let weekId = getWeekId(currentDate);
                 let dayIndex = dayOfWeek - 1;
-
-                // 1. Encontra qual era o efetivo nesta data exata
                 let marcoAtivo = marcosGlobais.find(m => m.id <= dateStr);
                 
                 if (marcoAtivo) {
-                    // 2. Busca o arquivo do App 1 (Contador de Presenca)
                     if (cacheSemanas[weekId] === undefined) {
                         try {
                             let docSnap = await getDoc(doc(db, "contador_de_presenca", weekId));
@@ -186,28 +170,181 @@ window.app = {
         }
 
         Swal.close();
-        if(diasUteisProcessados === 0) {
-            Toast.fire({ icon: 'info', title: 'Nenhum lançamento no período.' });
-        }
+        if(diasUteisProcessados === 0) Toast.fire({ icon: 'info', title: 'Nenhum lançamento no período.' });
         renderDashboardUI(stats, diasUteisProcessados || 1);
     },
 
-    exportarExcelMestre: () => {
-        // Alerta Temporário - Preparando terreno para a Fase 3
-        Swal.fire({
-            icon: 'info',
-            title: 'Fase 3: O Excel Vivo',
-            text: 'O motor de dados já está pronto e cruzando as tabelas. No próximo passo, a biblioteca ExcelJS injetará essas informações cruas em planilhas com fórmulas nativas e formatação vermelha automática!',
-            confirmButtonColor: '#2563eb'
-        });
+    // ==========================================
+    // FASE 3: EXCELJS - EXPORTAÇÃO VIVA
+    // ==========================================
+    exportarExcelMestre: async () => {
+        const start = document.getElementById('dash-start').value;
+        const end = document.getElementById('dash-end').value;
+        
+        if (!start || !end) return Swal.fire('Atenção', 'Selecione as datas inicial e final.', 'warning');
+        if (marcosGlobais.length === 0) return Swal.fire('Atenção', 'Nenhum Efetivo cadastrado.', 'warning');
+
+        Swal.fire({ title: 'Gerando Excel Vivo...', text: 'Injetando fórmulas matemáticas', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        let cacheSemanas = {};
+        let dailyDataP3 = []; 
+        let dailyDataP4 = []; 
+
+        let currentDate = new Date(start + "T12:00:00");
+        let endDateObj = new Date(end + "T12:00:00");
+
+        while (currentDate <= endDateObj) {
+            let dayOfWeek = currentDate.getDay();
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                let dateStr = currentDate.toISOString().split('T')[0];
+                let weekId = getWeekId(currentDate);
+                let dayIndex = dayOfWeek - 1;
+                let marco = marcosGlobais.find(m => m.id <= dateStr);
+
+                if (marco) {
+                    if (cacheSemanas[weekId] === undefined) {
+                        try {
+                            let docSnap = await getDoc(doc(db, "contador_de_presenca", weekId));
+                            cacheSemanas[weekId] = docSnap.exists() ? docSnap.data().dados : null;
+                        } catch(e) { cacheSemanas[weekId] = null; }
+                    }
+
+                    let semanaApp1 = cacheSemanas[weekId];
+                    if (semanaApp1) {
+                        const extrairFaltas = (area, turno) => {
+                            let l = semanaApp1.find(x => x.area === area && x.turno === turno);
+                            if(!l) return 0;
+                            let f = l.dias[dayIndex];
+                            return (f === "" || isNaN(f)) ? 0 : parseInt(f);
+                        };
+
+                        dailyDataP3.push({
+                            data: dateStr.split('-').reverse().join('/'),
+                            fab1_ef: marco.fab_1 || 0, fab1_fa: extrairFaltas('Fabricação', '1º'),
+                            fab2_ef: marco.fab_2 || 0, fab2_fa: extrairFaltas('Fabricação', '2º'),
+                            est1_ef: marco.est_1 || 0, est1_fa: extrairFaltas('Estrutural', '1º'),
+                            est2_ef: marco.est_2 || 0, est2_fa: extrairFaltas('Estrutural', '2º')
+                        });
+
+                        dailyDataP4.push({
+                            data: dateStr.split('-').reverse().join('/'),
+                            mont1_ef: marco.mont_1 || 0, mont1_fa: extrairFaltas('Mont. Final', '1º'),
+                            mont2_ef: marco.mont_2 || 0, mont2_fa: extrairFaltas('Mont. Final', '2º'),
+                            pain1_ef: marco.pain_1 || 0, pain1_fa: extrairFaltas('Painéis', '1º'),
+                            pain2_ef: marco.pain_2 || 0, pain2_fa: extrairFaltas('Painéis', '2º')
+                        });
+                    }
+                }
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        if(dailyDataP3.length === 0) return Swal.fire('Aviso', 'Nenhum dado encontrado no App 1 para este período.', 'info');
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            
+            // Função auxiliar de formatação de cores (Maior que 5% fica vermelho)
+            const addConditionalFormatting = (worksheet, ref) => {
+                worksheet.addConditionalFormatting({
+                    ref: ref,
+                    rules: [{
+                        type: 'cellIs', operator: 'greaterThan', formulae: [0.05],
+                        style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFC7CE' } }, font: { color: { argb: 'FF9C0006' }, bold: true } }
+                    }]
+                });
+            };
+
+            // ABA: PLANTA 3
+            const wsP3 = workbook.addWorksheet('Planta 3');
+            wsP3.columns = [
+                { header: 'Data', key: 'data', width: 12 },
+                { header: 'Fab 1T (Efetivo)', key: 'f1e', width: 16 }, { header: 'Fab 1T (Faltas)', key: 'f1f', width: 16 }, { header: 'Abs Fab 1T', key: 'f1a', width: 14 },
+                { header: 'Fab 2T (Efetivo)', key: 'f2e', width: 16 }, { header: 'Fab 2T (Faltas)', key: 'f2f', width: 16 }, { header: 'Abs Fab 2T', key: 'f2a', width: 14 },
+                { header: 'Est 1T (Efetivo)', key: 'e1e', width: 16 }, { header: 'Est 1T (Faltas)', key: 'e1f', width: 16 }, { header: 'Abs Est 1T', key: 'e1a', width: 14 },
+                { header: 'Est 2T (Efetivo)', key: 'e2e', width: 16 }, { header: 'Est 2T (Faltas)', key: 'e2f', width: 16 }, { header: 'Abs Est 2T', key: 'e2a', width: 14 }
+            ];
+
+            wsP3.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsP3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+
+            dailyDataP3.forEach((d, i) => {
+                let row = wsP3.addRow({
+                    data: d.data,
+                    f1e: d.fab1_ef, f1f: d.fab1_fa,
+                    f2e: d.fab2_ef, f2f: d.fab2_fa,
+                    e1e: d.est1_ef, e1f: d.est1_fa,
+                    e2e: d.est2_ef, e2f: d.est2_fa
+                });
+                let rIdx = i + 2;
+                row.getCell('D').value = { formula: `IF(B${rIdx}>0, C${rIdx}/B${rIdx}, 0)` };
+                row.getCell('G').value = { formula: `IF(E${rIdx}>0, F${rIdx}/E${rIdx}, 0)` };
+                row.getCell('J').value = { formula: `IF(H${rIdx}>0, I${rIdx}/H${rIdx}, 0)` };
+                row.getCell('M').value = { formula: `IF(K${rIdx}>0, L${rIdx}/K${rIdx}, 0)` };
+                
+                ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
+            });
+
+            let lastRowP3 = dailyDataP3.length + 1;
+            addConditionalFormatting(wsP3, `D2:D${lastRowP3}`);
+            addConditionalFormatting(wsP3, `G2:G${lastRowP3}`);
+            addConditionalFormatting(wsP3, `J2:J${lastRowP3}`);
+            addConditionalFormatting(wsP3, `M2:M${lastRowP3}`);
+
+            // ABA: PLANTA 4
+            const wsP4 = workbook.addWorksheet('Planta 4');
+            wsP4.columns = [
+                { header: 'Data', key: 'data', width: 12 },
+                { header: 'Mont 1T (Efetivo)', key: 'm1e', width: 17 }, { header: 'Mont 1T (Faltas)', key: 'm1f', width: 16 }, { header: 'Abs Mont 1T', key: 'm1a', width: 14 },
+                { header: 'Mont 2T (Efetivo)', key: 'm2e', width: 17 }, { header: 'Mont 2T (Faltas)', key: 'm2f', width: 16 }, { header: 'Abs Mont 2T', key: 'm2a', width: 14 },
+                { header: 'Painel 1T (Efetivo)', key: 'p1e', width: 17 }, { header: 'Painel 1T (Faltas)', key: 'p1f', width: 16 }, { header: 'Abs Painel 1T', key: 'p1a', width: 15 },
+                { header: 'Painel 2T (Efetivo)', key: 'p2e', width: 17 }, { header: 'Painel 2T (Faltas)', key: 'p2f', width: 16 }, { header: 'Abs Painel 2T', key: 'p2a', width: 15 }
+            ];
+
+            wsP4.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsP4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+
+            dailyDataP4.forEach((d, i) => {
+                let row = wsP4.addRow({
+                    data: d.data,
+                    m1e: d.mont1_ef, m1f: d.mont1_fa,
+                    m2e: d.mont2_ef, m2f: d.mont2_fa,
+                    p1e: d.pain1_ef, p1f: d.pain1_fa,
+                    p2e: d.pain2_ef, p2f: d.pain2_fa
+                });
+                let rIdx = i + 2;
+                row.getCell('D').value = { formula: `IF(B${rIdx}>0, C${rIdx}/B${rIdx}, 0)` };
+                row.getCell('G').value = { formula: `IF(E${rIdx}>0, F${rIdx}/E${rIdx}, 0)` };
+                row.getCell('J').value = { formula: `IF(H${rIdx}>0, I${rIdx}/H${rIdx}, 0)` };
+                row.getCell('M').value = { formula: `IF(K${rIdx}>0, L${rIdx}/K${rIdx}, 0)` };
+                
+                ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
+            });
+
+            let lastRowP4 = dailyDataP4.length + 1;
+            addConditionalFormatting(wsP4, `D2:D${lastRowP4}`);
+            addConditionalFormatting(wsP4, `G2:G${lastRowP4}`);
+            addConditionalFormatting(wsP4, `J2:J${lastRowP4}`);
+            addConditionalFormatting(wsP4, `M2:M${lastRowP4}`);
+
+            // Download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
+
+            Swal.close();
+            Toast.fire({ icon: 'success', title: 'Planilha Excel Viva Exportada!' });
+
+        } catch (err) {
+            console.error("Erro ao gerar Excel:", err);
+            Swal.fire('Erro', 'Ocorreu um problema ao montar o arquivo Excel.', 'error');
+        }
     }
 };
 
-// --- PROCESSAMENTO MATEMÁTICO DIÁRIO ---
 function processarDiaUnico(semanaApp1, marco, dayIndex, stats, dateStr) {
     if(!stats.evolucao[dateStr]) stats.evolucao[dateStr] = { ef:0, fa:0 };
 
-    // Mapa de Tradução: App 1 -> App 2
     const mapConfig = [
         { areaA1: 'Fabricação', turnoA1: '1º', p: 'PLANTA 3', s: 'Fabricação', t: '1º TURNO', key: 'fab_1' },
         { areaA1: 'Fabricação', turnoA1: '2º', p: 'PLANTA 3', s: 'Fabricação', t: '2º TURNO', key: 'fab_2' },
@@ -236,12 +373,10 @@ function processarDiaUnico(semanaApp1, marco, dayIndex, stats, dateStr) {
     });
 }
 
-// --- RENDERIZAÇÃO DA TELA (GRÁFICOS E CARDS) ---
 function renderDashboardUI(stats, daysCount) {
     const calc = (f, e) => e > 0 ? ((f/e)*100).toFixed(2) : "0.00"; 
     const mean = (f) => (f / daysCount).toFixed(1);
 
-    // Cards Superiores
     document.getElementById('kpi-p3').innerText = calc(stats.plantas["PLANTA 3"].fa, stats.plantas["PLANTA 3"].ef) + "%"; 
     document.getElementById('mean-p3').innerHTML = `<i class="ph-bold ph-trend-up"></i> Faltas/dia: ` + mean(stats.plantas["PLANTA 3"].fa);
     
@@ -254,11 +389,9 @@ function renderDashboardUI(stats, daysCount) {
     elG.className = `val ${parseFloat(globPct)>5?'alert-text':''}`; 
     document.getElementById('mean-global').innerHTML = `<i class="ph-bold ph-globe"></i> Faltas/dia: ` + mean(stats.global.fa);
 
-    // Limpa Grids
     const g1 = document.getElementById('grid-t1'), g2 = document.getElementById('grid-t2'), gc = document.getElementById('grid-consolidado');
     g1.innerHTML=''; g2.innerHTML=''; gc.innerHTML='';
 
-    // Cards Detalhados e Consolidados
     Object.keys(stats.setores).sort().forEach(k => { 
         const t1 = stats.setores[k]["1º TURNO"], t2 = stats.setores[k]["2º TURNO"];
         const p1 = calc(t1.fa, t1.ef), p2 = calc(t2.fa, t2.ef);
@@ -271,7 +404,6 @@ function renderDashboardUI(stats, daysCount) {
         gc.innerHTML += `<div class="mini-card border-sector"><h4>Total ${k}</h4><div class="val ${parseFloat(pt)>5?'alert-text':''}">${pt}%</div><span class="sub-val"><i class="ph-bold ph-sigma"></i> Faltas/dia: ${(totFa/daysCount).toFixed(1)}</span></div>`; 
     });
 
-    // Gráfico de Evolução
     const ctx = document.getElementById('chart-evolution'); 
     if (chartEvolution) chartEvolution.destroy(); 
     const keys = Object.keys(stats.evolucao).sort();
@@ -289,19 +421,15 @@ function renderDashboardUI(stats, daysCount) {
     });
 }
 
-// --- ESCUTADOR DO BANCO E INICIALIZAÇÃO ---
 onAuthStateChanged(auth, u => {
     document.getElementById('auth-overlay').style.display = u ? 'none' : 'flex';
     document.getElementById('app-container').style.display = u ? 'flex' : 'none';
     if(u) {
         app.loadUserProfile(u.uid);
         
-        // Mantém a linha do tempo do Efetivo sempre atualizada
         onSnapshot(collection(db, "efetivos_vigencia"), snap => {
             marcosGlobais = [];
             snap.forEach(doc => marcosGlobais.push({ id: doc.id, ...doc.data() }));
-            
-            // Ordena do mais recente para o mais antigo
             marcosGlobais.sort((a,b) => b.id.localeCompare(a.id));
 
             let hP3 = '', hP4 = '';
@@ -315,16 +443,15 @@ onAuthStateChanged(auth, u => {
                 hP3 += linha('Fabricação', '1º T', m.fab_1) + linha('Fabricação', '2º T', m.fab_2) + linha('Mont. Estrutural', '1º T', m.est_1) + linha('Mont. Estrutural', '2º T', m.est_2);
                 hP4 += linha('Montagem final', '1º T', m.mont_1) + linha('Montagem final', '2º T', m.mont_2) + linha('Painéis', '1º T', m.pain_1) + linha('Painéis', '2º T', m.pain_2);
                 
-                // Divisão visual entre marcos de datas diferentes
-                hP3 += `<tr style="background:#f1f5f9;"><td colspan="5" style="padding:2px;"></td></tr>`;
-                hP4 += `<tr style="background:#f1f5f9;"><td colspan="5" style="padding:2px;"></td></tr>`;
+                hP3 += `<tr style="background:#f1f5f9;"><td colspan=\"5\" style=\"padding:2px;\"></td></tr>`;
+                hP4 += `<tr style="background:#f1f5f9;"><td colspan=\"5\" style=\"padding:2px;\"></td></tr>`;
             });
 
-            document.querySelector('#table-p3 tbody').innerHTML = hP3 || `<tr><td colspan="5" style="text-align:center;">Sem registros.</td></tr>`;
-            document.querySelector('#table-p4 tbody').innerHTML = hP4 || `<tr><td colspan="5" style="text-align:center;">Sem registros.</td></tr>`;
+            document.querySelector('#table-p3 tbody').innerHTML = hP3 || `<tr><td colspan=\"5\" style=\"text-align:center;\">Sem registros.</td></tr>`;
+            document.querySelector('#table-p4 tbody').innerHTML = hP4 || `<tr><td colspan=\"5\" style=\"text-align:center;\">Sem registros.</td></tr>`;
         });
         
-        document.getElementById('dash-start').value = "2026-03-01"; // Inicializa no mês atual para o gráfico não pesar
+        document.getElementById('dash-start').value = "2026-03-01"; 
         const today = new Date();
         const localToday = new Date(today.getTime() - (today.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         document.getElementById('dash-end').value = localToday;
