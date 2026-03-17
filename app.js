@@ -175,7 +175,7 @@ window.app = {
     },
 
     // ==========================================
-    // FASE 3: EXCELJS - EXPORTAÇÃO VIVA
+    // FASE 3: EXPORTAÇÃO VIVA (ATUALIZADA COM ESTILOS)
     // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
@@ -184,7 +184,7 @@ window.app = {
         if (!start || !end) return Swal.fire('Atenção', 'Selecione as datas inicial e final.', 'warning');
         if (marcosGlobais.length === 0) return Swal.fire('Atenção', 'Nenhum Efetivo cadastrado.', 'warning');
 
-        Swal.fire({ title: 'Gerando Excel Vivo...', text: 'Injetando fórmulas matemáticas', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        Swal.fire({ title: 'Gerando Excel Vivo...', text: 'Aplicando formatação gerencial...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
         let cacheSemanas = {};
         let dailyDataP3 = []; 
@@ -244,29 +244,55 @@ window.app = {
         try {
             const workbook = new ExcelJS.Workbook();
             
-            // Função auxiliar de formatação de cores (Maior que 5% fica vermelho)
+            // Função para estilizar BORDAS FORTES e FONTES em toda a planilha
+            const aplicarEstilosGlobais = (worksheet) => {
+                worksheet.eachRow((row, rowNumber) => {
+                    row.eachCell((cell) => {
+                        // Borda 'medium' é a borda forte padrão elegante do Excel
+                        cell.border = {
+                            top: { style: 'medium' }, left: { style: 'medium' },
+                            bottom: { style: 'medium' }, right: { style: 'medium' }
+                        };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        
+                        // Arial 14 Negrito para o Cabeçalho, Arial 12 para os Dados
+                        if (rowNumber === 1) {
+                            cell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+                        } else {
+                            cell.font = { name: 'Arial', size: 12 };
+                        }
+                    });
+                });
+            };
+
+            // Formatação Condicional (Vermelho vivo com Fonte Branca Negrito)
             const addConditionalFormatting = (worksheet, ref) => {
                 worksheet.addConditionalFormatting({
                     ref: ref,
                     rules: [{
                         type: 'cellIs', operator: 'greaterThan', formulae: [0.05],
-                        style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFFC7CE' } }, font: { color: { argb: 'FF9C0006' }, bold: true } }
+                        style: { 
+                            fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: 'FFFF0000' } }, 
+                            font: { color: { argb: 'FFFFFFFF' }, bold: true } 
+                        }
                     }]
                 });
             };
 
+            // =========================
             // ABA: PLANTA 3
+            // =========================
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
-                { header: 'Data', key: 'data', width: 12 },
-                { header: 'Fab 1T (Efetivo)', key: 'f1e', width: 16 }, { header: 'Fab 1T (Faltas)', key: 'f1f', width: 16 }, { header: 'Abs Fab 1T', key: 'f1a', width: 14 },
-                { header: 'Fab 2T (Efetivo)', key: 'f2e', width: 16 }, { header: 'Fab 2T (Faltas)', key: 'f2f', width: 16 }, { header: 'Abs Fab 2T', key: 'f2a', width: 14 },
-                { header: 'Est 1T (Efetivo)', key: 'e1e', width: 16 }, { header: 'Est 1T (Faltas)', key: 'e1f', width: 16 }, { header: 'Abs Est 1T', key: 'e1a', width: 14 },
-                { header: 'Est 2T (Efetivo)', key: 'e2e', width: 16 }, { header: 'Est 2T (Faltas)', key: 'e2f', width: 16 }, { header: 'Abs Est 2T', key: 'e2a', width: 14 }
+                { header: 'Data', key: 'data', width: 15 },
+                { header: 'Fab 1T (Efetivo)', key: 'f1e', width: 22 }, { header: 'Fab 1T (Faltas)', key: 'f1f', width: 20 }, { header: 'Abs Fab 1T', key: 'f1a', width: 20 },
+                { header: 'Fab 2T (Efetivo)', key: 'f2e', width: 22 }, { header: 'Fab 2T (Faltas)', key: 'f2f', width: 20 }, { header: 'Abs Fab 2T', key: 'f2a', width: 20 },
+                { header: 'Est 1T (Efetivo)', key: 'e1e', width: 22 }, { header: 'Est 1T (Faltas)', key: 'e1f', width: 20 }, { header: 'Abs Est 1T', key: 'e1a', width: 20 },
+                { header: 'Est 2T (Efetivo)', key: 'e2e', width: 22 }, { header: 'Est 2T (Faltas)', key: 'e2f', width: 20 }, { header: 'Abs Est 2T', key: 'e2a', width: 20 }
             ];
 
-            wsP3.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            wsP3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+            // Fundo azul escuro para o cabeçalho para dar contraste com Arial 14 Branco
+            wsP3.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
 
             dailyDataP3.forEach((d, i) => {
                 let row = wsP3.addRow({
@@ -285,24 +311,26 @@ window.app = {
                 ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
             });
 
+            aplicarEstilosGlobais(wsP3);
             let lastRowP3 = dailyDataP3.length + 1;
             addConditionalFormatting(wsP3, `D2:D${lastRowP3}`);
             addConditionalFormatting(wsP3, `G2:G${lastRowP3}`);
             addConditionalFormatting(wsP3, `J2:J${lastRowP3}`);
             addConditionalFormatting(wsP3, `M2:M${lastRowP3}`);
 
+            // =========================
             // ABA: PLANTA 4
+            // =========================
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
-                { header: 'Data', key: 'data', width: 12 },
-                { header: 'Mont 1T (Efetivo)', key: 'm1e', width: 17 }, { header: 'Mont 1T (Faltas)', key: 'm1f', width: 16 }, { header: 'Abs Mont 1T', key: 'm1a', width: 14 },
-                { header: 'Mont 2T (Efetivo)', key: 'm2e', width: 17 }, { header: 'Mont 2T (Faltas)', key: 'm2f', width: 16 }, { header: 'Abs Mont 2T', key: 'm2a', width: 14 },
-                { header: 'Painel 1T (Efetivo)', key: 'p1e', width: 17 }, { header: 'Painel 1T (Faltas)', key: 'p1f', width: 16 }, { header: 'Abs Painel 1T', key: 'p1a', width: 15 },
-                { header: 'Painel 2T (Efetivo)', key: 'p2e', width: 17 }, { header: 'Painel 2T (Faltas)', key: 'p2f', width: 16 }, { header: 'Abs Painel 2T', key: 'p2a', width: 15 }
+                { header: 'Data', key: 'data', width: 15 },
+                { header: 'Mont 1T (Efetivo)', key: 'm1e', width: 23 }, { header: 'Mont 1T (Faltas)', key: 'm1f', width: 21 }, { header: 'Abs Mont 1T', key: 'm1a', width: 21 },
+                { header: 'Mont 2T (Efetivo)', key: 'm2e', width: 23 }, { header: 'Mont 2T (Faltas)', key: 'm2f', width: 21 }, { header: 'Abs Mont 2T', key: 'm2a', width: 21 },
+                { header: 'Painel 1T (Efetivo)', key: 'p1e', width: 23 }, { header: 'Painel 1T (Faltas)', key: 'p1f', width: 21 }, { header: 'Abs Painel 1T', key: 'p1a', width: 21 },
+                { header: 'Painel 2T (Efetivo)', key: 'p2e', width: 23 }, { header: 'Painel 2T (Faltas)', key: 'p2f', width: 21 }, { header: 'Abs Painel 2T', key: 'p2a', width: 21 }
             ];
 
-            wsP4.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            wsP4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+            wsP4.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
 
             dailyDataP4.forEach((d, i) => {
                 let row = wsP4.addRow({
@@ -321,13 +349,14 @@ window.app = {
                 ['D', 'G', 'J', 'M'].forEach(col => row.getCell(col).numFmt = '0.00%');
             });
 
+            aplicarEstilosGlobais(wsP4);
             let lastRowP4 = dailyDataP4.length + 1;
             addConditionalFormatting(wsP4, `D2:D${lastRowP4}`);
             addConditionalFormatting(wsP4, `G2:G${lastRowP4}`);
             addConditionalFormatting(wsP4, `J2:J${lastRowP4}`);
             addConditionalFormatting(wsP4, `M2:M${lastRowP4}`);
 
-            // Download
+            // Download Final
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
