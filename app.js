@@ -83,6 +83,72 @@ window.app = {
         } catch (e) { console.error(e); Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao salvar no banco.' }); }
     },
 
+    // ========================================================
+    // NOVO MOTOR: EDITAR MARCO DE EFETIVO
+    // ========================================================
+    editMarco: async (id) => {
+        const marco = marcosGlobais.find(m => m.id === id);
+        if (!marco) return;
+        
+        const dataFormatada = id.split('-').reverse().join('/');
+
+        const { value: formValues } = await Swal.fire({
+            title: 'Editar Efetivo',
+            html: `
+                <div style="text-align: left; margin-bottom: 15px; font-weight: bold; color: #2563eb; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+                    <i class="ph-bold ph-calendar-blank"></i> Vigência: ${dataFormatada}
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; text-align: left; font-size: 0.9rem;">
+                    <div><label style="color:#64748b; font-weight:600;">Fab 1ºT</label><input id="sw-f1" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.fab_1 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Fab 2ºT</label><input id="sw-f2" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.fab_2 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Est 1ºT</label><input id="sw-e1" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.est_1 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Est 2ºT</label><input id="sw-e2" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.est_2 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Mont 1ºT</label><input id="sw-m1" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.mont_1 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Mont 2ºT</label><input id="sw-m2" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.mont_2 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Painel 1ºT</label><input id="sw-p1" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.pain_1 || 0}"></div>
+                    <div><label style="color:#64748b; font-weight:600;">Painel 2ºT</label><input id="sw-p2" type="number" class="swal2-input" style="width: 100%; margin: 5px 0 0 0;" value="${marco.pain_2 || 0}"></div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: '<i class="ph-bold ph-floppy-disk"></i> Salvar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#2563eb',
+            preConfirm: () => {
+                return {
+                    fab_1: parseInt(document.getElementById('sw-f1').value) || 0,
+                    fab_2: parseInt(document.getElementById('sw-f2').value) || 0,
+                    est_1: parseInt(document.getElementById('sw-e1').value) || 0,
+                    est_2: parseInt(document.getElementById('sw-e2').value) || 0,
+                    mont_1: parseInt(document.getElementById('sw-m1').value) || 0,
+                    mont_2: parseInt(document.getElementById('sw-m2').value) || 0,
+                    pain_1: parseInt(document.getElementById('sw-p1').value) || 0,
+                    pain_2: parseInt(document.getElementById('sw-p2').value) || 0,
+                }
+            }
+        });
+
+        if (formValues) {
+            try {
+                // { merge: true } garante que a data e o ID do usuário não se percam, apenas atualiza os números!
+                await setDoc(doc(db, "efetivos_vigencia", id), {
+                    ...formValues,
+                    updated_at: Timestamp.now(),
+                    usuario_id: auth.currentUser.uid
+                }, { merge: true });
+                Toast.fire({ icon: 'success', title: 'Efetivo atualizado com sucesso!' });
+                
+                // Força o dashboard a recalcular caso o usuário esteja com a tela gerada
+                if(document.getElementById('tab-indicadores').classList.contains('active')) {
+                    app.updateDashboard();
+                }
+            } catch (e) {
+                console.error(e);
+                Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao atualizar no banco de dados.' });
+            }
+        }
+    },
+
     deleteMarco: async (id) => { 
         Swal.fire({ title: 'Excluir Marco de Vigência?', text: 'Os indicadores voltarão a usar o marco anterior a este.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Sim, excluir' }).then(async (r) => {
             if (r.isConfirmed) { await deleteDoc(doc(db, "efetivos_vigencia", id)); Toast.fire({ icon: 'success', title: 'Excluído.' }); }
@@ -173,9 +239,6 @@ window.app = {
         renderDashboardUI(stats, diasUteisProcessados || 1);
     },
 
-    // ==========================================
-    // EXPORTAÇÃO EXCEL (APENAS ABAS DE DETALHES 100% FORMATADAS)
-    // ==========================================
     exportarExcelMestre: async () => {
         const start = document.getElementById('dash-start').value;
         const end = document.getElementById('dash-end').value;
@@ -276,7 +339,7 @@ window.app = {
                 });
             };
 
-            // ========================= ABA: PLANTA 3 =========================
+            // ABA: PLANTA 3
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
                 { key: 'data', width: 16 },
@@ -320,7 +383,7 @@ window.app = {
             addConditionalFormatting(wsP3, `D4:D${lastRowP3}`); addConditionalFormatting(wsP3, `G4:G${lastRowP3}`);
             addConditionalFormatting(wsP3, `J4:J${lastRowP3}`); addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
-            // ========================= ABA: PLANTA 4 =========================
+            // ABA: PLANTA 4
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
                 { key: 'data', width: 16 },
@@ -363,7 +426,6 @@ window.app = {
             addConditionalFormatting(wsP4, `D4:D${lastRowP4}`); addConditionalFormatting(wsP4, `G4:G${lastRowP4}`);
             addConditionalFormatting(wsP4, `J4:J${lastRowP4}`); addConditionalFormatting(wsP4, `M4:M${lastRowP4}`);
 
-            // Download Final
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
@@ -490,9 +552,14 @@ onAuthStateChanged(auth, u => {
             marcosGlobais.forEach((m, i) => {
                 let status = i === 0 ? '<span class="status-good">Ativo (Atual)</span>' : '<span style="color:#64748b; font-size:0.8rem;">Histórico</span>';
                 let dataBr = m.id.split('-').reverse().join('/');
-                const btnExcluir = `<button class="btn-logout" onclick="app.deleteMarco('${m.id}')" title="Excluir"><i class="ph-bold ph-trash"></i></button>`;
                 
-                const linha = (setor, turno, val) => `<tr><td>${dataBr}</td><td>${setor} <small style="color:#64748b">(${turno})</small></td><td><b>${val}</b></td><td>${status}</td><td>${btnExcluir}</td></tr>`;
+                // NOVO: BOTOES DE AÇÃO LADO A LADO
+                const btnEditar = `<button class="btn-logout" style="color: #2563eb; background: none; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='none'" onclick="app.editMarco('${m.id}')" title="Editar"><i class="ph-bold ph-pencil-simple"></i></button>`;
+                const btnExcluir = `<button class="btn-logout" style="padding: 4px 8px; border-radius: 4px;" onclick="app.deleteMarco('${m.id}')" title="Excluir"><i class="ph-bold ph-trash"></i></button>`;
+                
+                const acoes = `<div style="display:flex; justify-content: center; gap: 8px;">${btnEditar} ${btnExcluir}</div>`;
+                
+                const linha = (setor, turno, val) => `<tr><td>${dataBr}</td><td>${setor} <small style="color:#64748b">(${turno})</small></td><td><b>${val}</b></td><td>${status}</td><td>${acoes}</td></tr>`;
                 
                 hP3 += linha('Fabricação', '1º T', m.fab_1) + linha('Fabricação', '2º T', m.fab_2) + linha('Mont. Estrutural', '1º T', m.est_1) + linha('Mont. Estrutural', '2º T', m.est_2);
                 hP4 += linha('Montagem final', '1º T', m.mont_1) + linha('Montagem final', '2º T', m.mont_2) + linha('Painéis', '1º T', m.pain_1) + linha('Painéis', '2º T', m.pain_2);
