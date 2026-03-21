@@ -58,19 +58,38 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
+    // ========================================================
+    // MOTOR INTELIGENTE: HERANÇA DE EFETIVO
+    // ========================================================
     saveData: async () => {
         const d = document.getElementById('inp-data').value;
-        const f1 = parseInt(document.getElementById('ef-fab-1').value) || 0;
-        const f2 = parseInt(document.getElementById('ef-fab-2').value) || 0;
-        const e1 = parseInt(document.getElementById('ef-est-1').value) || 0;
-        const e2 = parseInt(document.getElementById('ef-est-2').value) || 0;
-        const m1 = parseInt(document.getElementById('ef-mont-1').value) || 0;
-        const m2 = parseInt(document.getElementById('ef-mont-2').value) || 0;
-        const p1 = parseInt(document.getElementById('ef-pain-1').value) || 0;
-        const p2 = parseInt(document.getElementById('ef-pain-2').value) || 0;
-
         if (!d) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione a data de vigência.' });
-        if (f1+f2+e1+e2+m1+m2+p1+p2 === 0) return Swal.fire({ icon: 'error', title: 'Fábrica Vazia?', text: 'Preencha pelo menos um setor com capacidade válida.' });
+
+        // Busca o Efetivo que estava valendo antes desta data para herdar os vazios
+        // Como o marcosGlobais é ordenado do mais novo para o mais antigo, pegamos o primeiro <= a data escolhida
+        let marcoAnterior = marcosGlobais.find(m => m.id <= d) || {};
+
+        // Função que decide: Usa o que foi digitado ou herda do passado
+        const getValor = (idHtml, chaveBanco) => {
+            const valorDigitado = document.getElementById(idHtml).value.trim();
+            if (valorDigitado !== "") {
+                return parseInt(valorDigitado) || 0; // Se digitou algo (até mesmo "0"), respeita a digitação
+            }
+            return marcoAnterior[chaveBanco] || 0; // Se deixou vazio, puxa da última configuração
+        };
+
+        const f1 = getValor('ef-fab-1', 'fab_1');
+        const f2 = getValor('ef-fab-2', 'fab_2');
+        const e1 = getValor('ef-est-1', 'est_1');
+        const e2 = getValor('ef-est-2', 'est_2');
+        const m1 = getValor('ef-mont-1', 'mont_1');
+        const m2 = getValor('ef-mont-2', 'mont_2');
+        const p1 = getValor('ef-pain-1', 'pain_1');
+        const p2 = getValor('ef-pain-2', 'pain_2');
+
+        if (f1+f2+e1+e2+m1+m2+p1+p2 === 0) {
+            return Swal.fire({ icon: 'error', title: 'Fábrica Vazia?', text: 'O efetivo total não pode ser zero.' });
+        }
 
         try {
             await setDoc(doc(db, "efetivos_vigencia", d), {
@@ -78,14 +97,16 @@ window.app = {
                 mont_1: m1, mont_2: m2, pain_1: p1, pain_2: p2,
                 updated_at: Timestamp.now(), usuario_id: auth.currentUser.uid
             });
-            Toast.fire({ icon: 'success', title: 'Efetivo Global Salvo!' });
+            Toast.fire({ icon: 'success', title: 'Efetivo Global Salvo com Herança!' });
+            
+            // Limpa os campos após salvar
             ['ef-fab-1','ef-fab-2','ef-est-1','ef-est-2','ef-mont-1','ef-mont-2','ef-pain-1','ef-pain-2'].forEach(id => document.getElementById(id).value = '');
-        } catch (e) { console.error(e); Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao salvar no banco.' }); }
+        } catch (e) { 
+            console.error(e); 
+            Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao salvar no banco.' }); 
+        }
     },
 
-    // ========================================================
-    // NOVO MOTOR: EDITAR MARCO DE EFETIVO
-    // ========================================================
     editMarco: async (id) => {
         const marco = marcosGlobais.find(m => m.id === id);
         if (!marco) return;
@@ -130,7 +151,6 @@ window.app = {
 
         if (formValues) {
             try {
-                // { merge: true } garante que a data e o ID do usuário não se percam, apenas atualiza os números!
                 await setDoc(doc(db, "efetivos_vigencia", id), {
                     ...formValues,
                     updated_at: Timestamp.now(),
@@ -138,7 +158,6 @@ window.app = {
                 }, { merge: true });
                 Toast.fire({ icon: 'success', title: 'Efetivo atualizado com sucesso!' });
                 
-                // Força o dashboard a recalcular caso o usuário esteja com a tela gerada
                 if(document.getElementById('tab-indicadores').classList.contains('active')) {
                     app.updateDashboard();
                 }
@@ -553,7 +572,6 @@ onAuthStateChanged(auth, u => {
                 let status = i === 0 ? '<span class="status-good">Ativo (Atual)</span>' : '<span style="color:#64748b; font-size:0.8rem;">Histórico</span>';
                 let dataBr = m.id.split('-').reverse().join('/');
                 
-                // NOVO: BOTOES DE AÇÃO LADO A LADO
                 const btnEditar = `<button class="btn-logout" style="color: #2563eb; background: none; border: 1px solid #bfdbfe; padding: 4px 8px; border-radius: 4px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='none'" onclick="app.editMarco('${m.id}')" title="Editar"><i class="ph-bold ph-pencil-simple"></i></button>`;
                 const btnExcluir = `<button class="btn-logout" style="padding: 4px 8px; border-radius: 4px;" onclick="app.deleteMarco('${m.id}')" title="Excluir"><i class="ph-bold ph-trash"></i></button>`;
                 
