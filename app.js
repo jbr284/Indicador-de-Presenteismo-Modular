@@ -178,7 +178,7 @@ window.app = {
         document.getElementById(tabId).classList.add('active');
         
         if (tabId === 'tab-indicadores') app.updateDashboard();
-        if (tabId === 'tab-basedados') app.loadBaseDados();
+        if (tabId === 'tab-basedados') app.loadBaseDados(); 
     },
     
     loadUserProfile: async (uid) => {
@@ -356,7 +356,6 @@ window.app = {
                 });
             };
 
-            // ABA: PLANTA 3
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
                 { key: 'data', width: 16 },
@@ -400,7 +399,6 @@ window.app = {
             addConditionalFormatting(wsP3, `D4:D${lastRowP3}`); addConditionalFormatting(wsP3, `G4:G${lastRowP3}`);
             addConditionalFormatting(wsP3, `J4:J${lastRowP3}`); addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
-            // ABA: PLANTA 4
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
                 { key: 'data', width: 16 },
@@ -456,9 +454,6 @@ window.app = {
         }
     },
 
-    // ========================================================
-    // BASE DE DADOS (IDÊNTICO AO APP 1 E COM LEITURA ROBUSTA)
-    // ========================================================
     loadBaseDados: async () => {
         const container = document.getElementById('accordion-container-bd');
         container.innerHTML = '<div style="text-align:center; padding: 20px; color: #64748b;"><i class="ph ph-spinner ph-spin" style="font-size: 2rem;"></i><br>Conectando ao App 1...</div>';
@@ -501,7 +496,6 @@ window.app = {
         lista.forEach((semana, index) => {
             const registros = semana.dados || [];
 
-            // Apanhador Robusto de Resumo (Cobre 5 formas diferentes de salvar)
             const resT1 = semana.resumoT1 || semana.resumo_t1 || semana.textoResumoT1 || semana.resumo || "Sem observações registradas.";
             const resT2 = semana.resumoT2 || semana.resumo_t2 || semana.textoResumoT2 || "";
 
@@ -570,9 +564,19 @@ window.app = {
                 textoResumoCompleto += `\n\n<b>■ 2º TURNO:</b>\n${resT2}`;
             }
 
+            // O SEGREDINHO DA SANFONA ESTÁ NESTE 'ONCLICK'
             const resumoHtml = `
             <div class="hist-resumo">
-                <div class="hist-resumo-hdr" onclick="this.classList.toggle('open'); const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none'">
+                <div class="hist-resumo-hdr" onclick="
+                    this.classList.toggle('open'); 
+                    const b = this.nextElementSibling; 
+                    b.style.display = b.style.display === 'none' ? 'block' : 'none'; 
+                    const outer = this.closest('.accordion-content'); 
+                    if(outer && outer.style.maxHeight) { 
+                        outer.style.maxHeight = 'none'; 
+                        outer.style.maxHeight = outer.scrollHeight + 'px'; 
+                    }
+                ">
                     <span><i class="ph-fill ph-text-align-left"></i> Resumo Gerencial da Semana (Toque para ler)</span>
                     <i class="ph-bold ph-caret-down"></i>
                 </div>
