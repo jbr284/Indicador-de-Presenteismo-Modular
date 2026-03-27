@@ -89,7 +89,7 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white; }
 
 /* ========================================================= */
-/* --- 7. TABELAS --- */
+/* --- 7. TABELAS (APP 2) --- */
 /* ========================================================= */
 .table-container { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -99,21 +99,35 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .status-good { color: var(--success); font-weight: 700; background: #ecfdf5; padding: 2px 8px; border-radius: 12px; }
 .turn-header { background: #f1f5f9; color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
 
-/* --- TABELAS DA NOVA ABA: BASE DE DADOS --- */
-.hist-table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
-.hist-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 700px; }
-.hist-table th { background: #eff6ff; color: var(--primary-dark); font-weight: 700; padding: 10px; text-align: center; border: 1px solid #bfdbfe; }
-.hist-table td { padding: 10px; text-align: center; border: 1px solid var(--border); }
-.td-area-hist { font-weight: 700; background: #f8fafc; text-align: left !important; }
-.td-turno-hist { font-weight: 600; color: var(--text-light); background: #f8fafc; }
-.td-total-hist { font-weight: 700; color: var(--primary-dark); background: #eff6ff; }
-.row-total-hist td { font-weight: 700; background: #1e293b !important; color: white !important; border-color: #334155 !important; }
-.resumo-box { background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border); font-size: 0.9rem;}
-.resumo-box h4 { margin: 0 0 10px 0; color: var(--primary-dark); font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
-.resumo-box p { margin: 0; white-space: pre-wrap; color: var(--text-main); }
+/* ========================================================= */
+/* --- 8. BASE DE DADOS (CLONAGEM DO VISUAL APP 1) --- */
+/* ========================================================= */
+.hist-card { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1.2rem; background: #ffffff; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.hist-card-header { background: #eff6ff; color: #1d4ed8; padding: 0.8rem 1rem; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #bfdbfe; }
+.hist-turno-title { font-size: 0.8rem; font-weight: 700; color: #64748b; margin: 1rem 1rem 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.hist-dias-grid { display: flex; gap: 10px; padding: 0 1rem 1rem; overflow-x: auto; }
+.hist-dia-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.6rem; text-align: center; flex: 1; min-width: 60px; background: #ffffff; }
+.hist-dia-label { font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
+.hist-dia-val { font-size: 1.1rem; font-weight: 700; color: #334155; }
+.hist-tot-box { background: #eff6ff; border-color: #bfdbfe; }
+.hist-tot-box .hist-dia-val { color: #2563eb; }
+
+.hist-geral { background: #2563eb; color: white; border-radius: 8px; padding: 1.2rem; margin-top: 1.5rem; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2); }
+.hist-geral-title { text-align: center; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
+.hist-geral-grid { display: flex; gap: 10px; width: 100%; overflow-x: auto; }
+.hist-geral-box { flex: 1; text-align: center; padding: 0.5rem; border-radius: 6px; min-width: 60px; }
+.hist-geral-box.tot { background: rgba(255,255,255,0.2); }
+.hist-geral-label { font-size: 0.7rem; font-weight: 700; color: #bfdbfe; margin-bottom: 4px; text-transform: uppercase; }
+.hist-geral-val { font-size: 1.2rem; font-weight: 700; }
+
+.hist-resumo { border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 1.5rem; background: #ffffff; overflow: hidden; }
+.hist-resumo-hdr { padding: 1rem; background: #f8fafc; font-weight: 600; color: #334155; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid transparent; transition: background 0.2s; }
+.hist-resumo-hdr:hover { background: #f1f5f9; }
+.hist-resumo-hdr.open { border-bottom-color: #e2e8f0; }
+.hist-resumo-body { padding: 1rem; font-size: 0.9rem; color: #475569; white-space: pre-wrap; line-height: 1.5; border-top: 1px solid #e2e8f0; }
 
 /* ========================================================= */
-/* --- 8. DASHBOARD --- */
+/* --- 9. DASHBOARD --- */
 /* ========================================================= */
 .dash-section-title { font-size: 1rem; font-weight: 700; color: var(--sidebar-bg); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; }
 .compact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; }
@@ -125,7 +139,7 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .chart-box { height: 400px; padding: 1rem; }
 
 /* ========================================================= */
-/* --- 9. OTIMIZAÇÃO DE IMPRESSÃO --- */
+/* --- 10. OTIMIZAÇÃO DE IMPRESSÃO --- */
 /* ========================================================= */
 @media print { 
     @page { size: landscape; margin: 5mm; } 
@@ -139,7 +153,7 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 }
 
 /* ========================================================= */
-/* --- 10. RESPONSIVIDADE MOBILE --- */
+/* --- 11. RESPONSIVIDADE MOBILE --- */
 /* ========================================================= */
 @media (max-width: 768px) { 
     #app-container { flex-direction: column; } 
