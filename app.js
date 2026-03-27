@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, query, onSnapshot, deleteDoc, doc, Timestamp, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, collection, query, onSnapshot, deleteDoc, doc, Timestamp, setDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -17,6 +17,7 @@ const auth = getAuth(appFire);
 
 let chartEvolution = null;
 let marcosGlobais = []; 
+let baseDadosCache = []; // Cache para a nova aba Base de Dados
 
 Chart.register(ChartDataLabels);
 
@@ -58,24 +59,16 @@ window.app = {
         Swal.fire({ title: 'Sair?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#2563eb', cancelButtonColor: '#d33', confirmButtonText: 'Sair' }).then((r) => { if (r.isConfirmed) signOut(auth); });
     },
 
-    // ========================================================
-    // MOTOR INTELIGENTE: HERANÇA DE EFETIVO
-    // ========================================================
     saveData: async () => {
         const d = document.getElementById('inp-data').value;
         if (!d) return Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione a data de vigência.' });
 
-        // Busca o Efetivo que estava valendo antes desta data para herdar os vazios
-        // Como o marcosGlobais é ordenado do mais novo para o mais antigo, pegamos o primeiro <= a data escolhida
         let marcoAnterior = marcosGlobais.find(m => m.id <= d) || {};
 
-        // Função que decide: Usa o que foi digitado ou herda do passado
         const getValor = (idHtml, chaveBanco) => {
             const valorDigitado = document.getElementById(idHtml).value.trim();
-            if (valorDigitado !== "") {
-                return parseInt(valorDigitado) || 0; // Se digitou algo (até mesmo "0"), respeita a digitação
-            }
-            return marcoAnterior[chaveBanco] || 0; // Se deixou vazio, puxa da última configuração
+            if (valorDigitado !== "") return parseInt(valorDigitado) || 0; 
+            return marcoAnterior[chaveBanco] || 0; 
         };
 
         const f1 = getValor('ef-fab-1', 'fab_1');
@@ -99,7 +92,6 @@ window.app = {
             });
             Toast.fire({ icon: 'success', title: 'Efetivo Global Salvo com Herança!' });
             
-            // Limpa os campos após salvar
             ['ef-fab-1','ef-fab-2','ef-est-1','ef-est-2','ef-mont-1','ef-mont-2','ef-pain-1','ef-pain-2'].forEach(id => document.getElementById(id).value = '');
         } catch (e) { 
             console.error(e); 
@@ -177,10 +169,16 @@ window.app = {
     switchTab: (tabId) => {
         document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
-        const btnIndex = tabId === 'tab-lancamento' ? 0 : 1;
+        
+        let btnIndex = 0;
+        if (tabId === 'tab-indicadores') btnIndex = 1;
+        else if (tabId === 'tab-basedados') btnIndex = 2;
+        
         document.querySelectorAll('nav button')[btnIndex].classList.add('active');
         document.getElementById(tabId).classList.add('active');
+        
         if (tabId === 'tab-indicadores') app.updateDashboard();
+        if (tabId === 'tab-basedados') app.loadBaseDados(); // Gatilho para carregar a 3ª Aba
     },
     
     loadUserProfile: async (uid) => {
@@ -447,7 +445,7 @@ window.app = {
 
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            saveAs(blob, `Relatorio_Modular_Presenteismo_${start}_a_${end}.xlsx`);
+            saveAs(blob, `Relatorio_Modular_Absenteismo_${start}_a_${end}.xlsx`);
 
             Swal.close();
             Toast.fire({ icon: 'success', title: 'Relatório Exportado!' });
@@ -456,6 +454,124 @@ window.app = {
             console.error("Erro ao gerar Excel:", err);
             Swal.fire('Erro', 'Ocorreu um problema ao montar o arquivo Excel.', 'error');
         }
+    },
+
+    // ========================================================
+    // NOVA ABA: BASE DE DADOS (READ-ONLY)
+    // ========================================================
+    loadBaseDados: async () => {
+        const container = document.getElementById('accordion-container-bd');
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color: #64748b;"><i class="ph ph-spinner ph-spin" style="font-size: 2rem;"></i><br>Conectando ao App 1...</div>';
+        
+        try {
+            const snap = await getDocs(collection(db, "contador_de_presenca"));
+            baseDadosCache = [];
+            snap.forEach(doc => {
+                baseDadosCache.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Ordena o histórico do mais recente para o mais antigo decifrando a string da semana
+            baseDadosCache.sort((a, b) => {
+                const getTimestamp = (str) => {
+                    const partes = str.split(' ');
+                    if (partes.length < 5) return 0;
+                    const dia = parseInt(partes[0]);
+                    const mesStr = partes[partes.length - 3].toLowerCase();
+                    const ano = parseInt(partes[partes.length - 1]);
+                    const meses = {'jan':0,'fev':1,'mar':2,'abr':3,'mai':4,'jun':5,'jul':6,'ago':7,'set':8,'out':9,'nov':10,'dez':11};
+                    return new Date(ano, meses[mesStr.substring(0,3)] || 0, dia).getTime();
+                };
+                return getTimestamp(b.id) - getTimestamp(a.id);
+            });
+
+            app.renderBaseDados(baseDadosCache);
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = '<div style="color: var(--danger); text-align: center;">Erro ao carregar a base de dados.</div>';
+        }
+    },
+
+    renderBaseDados: (lista) => {
+        const container = document.getElementById('accordion-container-bd');
+        if (lista.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Nenhum registro encontrado no App 1.</div>';
+            return;
+        }
+
+        let html = '';
+        lista.forEach((semana, index) => {
+            const registros = semana.dados || [];
+            const resT1 = semana.resumoT1 || "Sem observações registradas.";
+            const resT2 = semana.resumoT2 || "Sem observações registradas.";
+
+            // Monta as linhas da tabela
+            let rows = '';
+            let totSeg=0, totTer=0, totQua=0, totQui=0, totSex=0, totGeral=0;
+
+            registros.forEach(r => {
+                let d0 = parseInt(r.dias[0])||0; let d1 = parseInt(r.dias[1])||0;
+                let d2 = parseInt(r.dias[2])||0; let d3 = parseInt(r.dias[3])||0;
+                let d4 = parseInt(r.dias[4])||0;
+                let totLinha = d0+d1+d2+d3+d4;
+
+                totSeg+=d0; totTer+=d1; totQua+=d2; totQui+=d3; totSex+=d4; totGeral+=totLinha;
+
+                rows += `<tr>
+                    <td class="td-area-hist">${r.area}</td>
+                    <td class="td-turno-hist">${r.turno}</td>
+                    <td>${d0||'-'}</td><td>${d1||'-'}</td><td>${d2||'-'}</td><td>${d3||'-'}</td><td>${d4||'-'}</td>
+                    <td class="td-total-hist">${totLinha}</td>
+                </tr>`;
+            });
+
+            // Linha Final da Semana
+            rows += `<tr class="row-total-hist">
+                <td colspan="2" style="text-align: right;">FALTAS TOTAIS DA SEMANA:</td>
+                <td>${totSeg}</td><td>${totTer}</td><td>${totQua}</td><td>${totQui}</td><td>${totSex}</td>
+                <td>${totGeral}</td>
+            </tr>`;
+
+            html += `
+            <div class="accordion-item bd-item" data-id="${semana.id.toLowerCase()}" style="margin-bottom: 15px;">
+                <div class="accordion-header" onclick="toggleAccordion('bd-acc-${index}')">
+                    <h3><i class="ph ph-calendar-blank"></i> Semana: ${semana.id}</h3>
+                    <i class="ph-bold ph-caret-down acc-icon"></i>
+                </div>
+                <div class="accordion-content" id="bd-acc-${index}">
+                    <div style="padding: 1.5rem;">
+                        <div class="hist-table-wrapper">
+                            <table class="hist-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 25%;">Área</th>
+                                        <th style="width: 10%;">Turno</th>
+                                        <th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th>
+                                        <th>Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="resumo-box"><h4><i class="ph-fill ph-chat-text"></i> Resumo 1º Turno (Supervisão)</h4><p>${resT1}</p></div>
+                            <div class="resumo-box"><h4><i class="ph-fill ph-chat-text"></i> Resumo 2º Turno (Supervisão)</h4><p>${resT2}</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    },
+
+    filtrarBaseDados: () => {
+        const termo = document.getElementById('input-busca-bd').value.toLowerCase();
+        const items = document.querySelectorAll('.bd-item');
+        items.forEach(el => {
+            const id = el.getAttribute('data-id');
+            if (id.includes(termo)) el.style.display = 'block';
+            else el.style.display = 'none';
+        });
     }
 };
 
