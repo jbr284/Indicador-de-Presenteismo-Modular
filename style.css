@@ -58,13 +58,12 @@ input, select { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--bor
 input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
 
 /* ========================================================= */
-/* --- 4. GRID RÁPIDO DO EFETIVO (NOVO) --- */
+/* --- 4. GRID RÁPIDO DO EFETIVO --- */
 /* ========================================================= */
 .form-grid-efetivo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
 .efetivo-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem; border-left: 4px solid transparent; }
 .efetivo-box h4 { margin: 0 0 1rem 0; font-size: 0.95rem; color: var(--text-main); display: flex; align-items: center; gap: 6px; }
 .grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-/* Usando breakpoints nativos do CSS para garantir que no celular não esmague */
 @media (max-width: 450px) { .grid-2-col { grid-template-columns: 1fr; } }
 
 /* ========================================================= */
@@ -99,6 +98,19 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .status-bad { color: var(--danger); font-weight: 700; background: #fef2f2; padding: 2px 8px; border-radius: 12px; }
 .status-good { color: var(--success); font-weight: 700; background: #ecfdf5; padding: 2px 8px; border-radius: 12px; }
 .turn-header { background: #f1f5f9; color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
+
+/* --- TABELAS DA NOVA ABA: BASE DE DADOS --- */
+.hist-table-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+.hist-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 700px; }
+.hist-table th { background: #eff6ff; color: var(--primary-dark); font-weight: 700; padding: 10px; text-align: center; border: 1px solid #bfdbfe; }
+.hist-table td { padding: 10px; text-align: center; border: 1px solid var(--border); }
+.td-area-hist { font-weight: 700; background: #f8fafc; text-align: left !important; }
+.td-turno-hist { font-weight: 600; color: var(--text-light); background: #f8fafc; }
+.td-total-hist { font-weight: 700; color: var(--primary-dark); background: #eff6ff; }
+.row-total-hist td { font-weight: 700; background: #1e293b !important; color: white !important; border-color: #334155 !important; }
+.resumo-box { background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border); font-size: 0.9rem;}
+.resumo-box h4 { margin: 0 0 10px 0; color: var(--primary-dark); font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+.resumo-box p { margin: 0; white-space: pre-wrap; color: var(--text-main); }
 
 /* ========================================================= */
 /* --- 8. DASHBOARD --- */
