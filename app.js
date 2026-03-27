@@ -17,7 +17,7 @@ const auth = getAuth(appFire);
 
 let chartEvolution = null;
 let marcosGlobais = []; 
-let baseDadosCache = []; // Cache para a nova aba Base de Dados
+let baseDadosCache = []; 
 
 Chart.register(ChartDataLabels);
 
@@ -178,7 +178,7 @@ window.app = {
         document.getElementById(tabId).classList.add('active');
         
         if (tabId === 'tab-indicadores') app.updateDashboard();
-        if (tabId === 'tab-basedados') app.loadBaseDados(); // Gatilho para carregar a 3ª Aba
+        if (tabId === 'tab-basedados') app.loadBaseDados();
     },
     
     loadUserProfile: async (uid) => {
@@ -457,7 +457,7 @@ window.app = {
     },
 
     // ========================================================
-    // NOVA ABA: BASE DE DADOS (READ-ONLY)
+    // BASE DE DADOS (IDÊNTICO AO APP 1 E COM LEITURA ROBUSTA)
     // ========================================================
     loadBaseDados: async () => {
         const container = document.getElementById('accordion-container-bd');
@@ -470,7 +470,6 @@ window.app = {
                 baseDadosCache.push({ id: doc.id, ...doc.data() });
             });
             
-            // Ordena o histórico do mais recente para o mais antigo decifrando a string da semana
             baseDadosCache.sort((a, b) => {
                 const getTimestamp = (str) => {
                     const partes = str.split(' ');
@@ -501,35 +500,84 @@ window.app = {
         let html = '';
         lista.forEach((semana, index) => {
             const registros = semana.dados || [];
-            const resT1 = semana.resumoT1 || "Sem observações registradas.";
-            const resT2 = semana.resumoT2 || "Sem observações registradas.";
 
-            // Monta as linhas da tabela
-            let rows = '';
-            let totSeg=0, totTer=0, totQua=0, totQui=0, totSex=0, totGeral=0;
+            // Apanhador Robusto de Resumo (Cobre 5 formas diferentes de salvar)
+            const resT1 = semana.resumoT1 || semana.resumo_t1 || semana.textoResumoT1 || semana.resumo || "Sem observações registradas.";
+            const resT2 = semana.resumoT2 || semana.resumo_t2 || semana.textoResumoT2 || "";
 
+            let htmlAreas = '';
+            let totSegG=0, totTerG=0, totQuaG=0, totQuiG=0, totSexG=0, totSemanaG=0;
+
+            const areasMap = {};
             registros.forEach(r => {
-                let d0 = parseInt(r.dias[0])||0; let d1 = parseInt(r.dias[1])||0;
-                let d2 = parseInt(r.dias[2])||0; let d3 = parseInt(r.dias[3])||0;
-                let d4 = parseInt(r.dias[4])||0;
-                let totLinha = d0+d1+d2+d3+d4;
-
-                totSeg+=d0; totTer+=d1; totQua+=d2; totQui+=d3; totSex+=d4; totGeral+=totLinha;
-
-                rows += `<tr>
-                    <td class="td-area-hist">${r.area}</td>
-                    <td class="td-turno-hist">${r.turno}</td>
-                    <td>${d0||'-'}</td><td>${d1||'-'}</td><td>${d2||'-'}</td><td>${d3||'-'}</td><td>${d4||'-'}</td>
-                    <td class="td-total-hist">${totLinha}</td>
-                </tr>`;
+                if(!areasMap[r.area]) areasMap[r.area] = [];
+                areasMap[r.area].push(r);
             });
 
-            // Linha Final da Semana
-            rows += `<tr class="row-total-hist">
-                <td colspan="2" style="text-align: right;">FALTAS TOTAIS DA SEMANA:</td>
-                <td>${totSeg}</td><td>${totTer}</td><td>${totQua}</td><td>${totQui}</td><td>${totSex}</td>
-                <td>${totGeral}</td>
-            </tr>`;
+            const ordemAreas = ['Fabricação', 'Estrutural', 'Mont. Final', 'Painéis'];
+            const areasNomes = Object.keys(areasMap).sort((a, b) => {
+                let idxA = ordemAreas.indexOf(a); let idxB = ordemAreas.indexOf(b);
+                if(idxA === -1) idxA = 99; if(idxB === -1) idxB = 99;
+                return idxA - idxB;
+            });
+
+            areasNomes.forEach(nomeArea => {
+                let turnosHtml = '';
+                const turnos = areasMap[nomeArea].sort((a, b) => a.turno.localeCompare(b.turno));
+                
+                turnos.forEach(t => {
+                    let d0 = parseInt(t.dias[0])||0; let d1 = parseInt(t.dias[1])||0;
+                    let d2 = parseInt(t.dias[2])||0; let d3 = parseInt(t.dias[3])||0;
+                    let d4 = parseInt(t.dias[4])||0;
+                    let totTurno = d0+d1+d2+d3+d4;
+
+                    totSegG+=d0; totTerG+=d1; totQuaG+=d2; totQuiG+=d3; totSexG+=d4; totSemanaG+=totTurno;
+
+                    turnosHtml += `
+                    <div class="hist-turno-title">${t.turno} TURNO</div>
+                    <div class="hist-dias-grid">
+                        <div class="hist-dia-box"><div class="hist-dia-label">SEG</div><div class="hist-dia-val">${d0}</div></div>
+                        <div class="hist-dia-box"><div class="hist-dia-label">TER</div><div class="hist-dia-val">${d1}</div></div>
+                        <div class="hist-dia-box"><div class="hist-dia-label">QUA</div><div class="hist-dia-val">${d2}</div></div>
+                        <div class="hist-dia-box"><div class="hist-dia-label">QUI</div><div class="hist-dia-val">${d3}</div></div>
+                        <div class="hist-dia-box"><div class="hist-dia-label">SEX</div><div class="hist-dia-val">${d4}</div></div>
+                        <div class="hist-dia-box hist-tot-box"><div class="hist-dia-label">TOT</div><div class="hist-dia-val">${totTurno}</div></div>
+                    </div>`;
+                });
+
+                htmlAreas += `
+                <div class="hist-card">
+                    <div class="hist-card-header"><i class="ph-fill ph-stack"></i> ${nomeArea}</div>
+                    ${turnosHtml}
+                </div>`;
+            });
+
+            const totalGeralHtml = `
+            <div class="hist-geral">
+                <div class="hist-geral-title">TOTAL GERAL DA SEMANA</div>
+                <div class="hist-geral-grid">
+                    <div class="hist-geral-box"><div class="hist-geral-label">SEG</div><div class="hist-geral-val">${totSegG}</div></div>
+                    <div class="hist-geral-box"><div class="hist-geral-label">TER</div><div class="hist-geral-val">${totTerG}</div></div>
+                    <div class="hist-geral-box"><div class="hist-geral-label">QUA</div><div class="hist-geral-val">${totQuaG}</div></div>
+                    <div class="hist-geral-box"><div class="hist-geral-label">QUI</div><div class="hist-geral-val">${totQuiG}</div></div>
+                    <div class="hist-geral-box"><div class="hist-geral-label">SEX</div><div class="hist-geral-val">${totSexG}</div></div>
+                    <div class="hist-geral-box tot"><div class="hist-geral-label">TOTAL</div><div class="hist-geral-val">${totSemanaG}</div></div>
+                </div>
+            </div>`;
+
+            let textoResumoCompleto = `<b>■ 1º TURNO:</b>\n${resT1}`;
+            if (resT2 && resT2 !== "Sem observações registradas.") {
+                textoResumoCompleto += `\n\n<b>■ 2º TURNO:</b>\n${resT2}`;
+            }
+
+            const resumoHtml = `
+            <div class="hist-resumo">
+                <div class="hist-resumo-hdr" onclick="this.classList.toggle('open'); const b = this.nextElementSibling; b.style.display = b.style.display === 'none' ? 'block' : 'none'">
+                    <span><i class="ph-fill ph-text-align-left"></i> Resumo Gerencial da Semana (Toque para ler)</span>
+                    <i class="ph-bold ph-caret-down"></i>
+                </div>
+                <div class="hist-resumo-body" style="display: none;">${textoResumoCompleto}</div>
+            </div>`;
 
             html += `
             <div class="accordion-item bd-item" data-id="${semana.id.toLowerCase()}" style="margin-bottom: 15px;">
@@ -538,24 +586,10 @@ window.app = {
                     <i class="ph-bold ph-caret-down acc-icon"></i>
                 </div>
                 <div class="accordion-content" id="bd-acc-${index}">
-                    <div style="padding: 1.5rem;">
-                        <div class="hist-table-wrapper">
-                            <table class="hist-table">
-                                <thead>
-                                    <tr>
-                                        <th style="width: 25%;">Área</th>
-                                        <th style="width: 10%;">Turno</th>
-                                        <th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th>
-                                        <th>Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>${rows}</tbody>
-                            </table>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                            <div class="resumo-box"><h4><i class="ph-fill ph-chat-text"></i> Resumo 1º Turno (Supervisão)</h4><p>${resT1}</p></div>
-                            <div class="resumo-box"><h4><i class="ph-fill ph-chat-text"></i> Resumo 2º Turno (Supervisão)</h4><p>${resT2}</p></div>
-                        </div>
+                    <div style="padding: 1.5rem; background: #f8fafc;">
+                        ${htmlAreas}
+                        ${totalGeralHtml}
+                        ${resumoHtml}
                     </div>
                 </div>
             </div>`;
