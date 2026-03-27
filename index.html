@@ -37,6 +37,7 @@
             <nav>
                 <button class="active" onclick="app.switchTab('tab-lancamento')"><i class="ph ph-users"></i> <span>Gestão de Efetivo</span></button>
                 <button onclick="app.switchTab('tab-indicadores')"><i class="ph ph-chart-line-up"></i> <span>Indicadores e Excel</span></button>
+                <button onclick="app.switchTab('tab-basedados')"><i class="ph ph-database"></i> <span>Base de Dados</span></button>
             </nav>
             <div class="user-profile" onclick="app.openProfileEditor()" title="Clique para editar seu perfil">
                 <div class="avatar-container"><img id="user-avatar-img" src="" style="display: none;"><div id="user-avatar-placeholder" class="avatar-placeholder"><i class="ph ph-user"></i></div></div>
@@ -53,7 +54,6 @@
             
             <main>
                 <section id="tab-lancamento" class="view-section active">
-                    
                     <div class="card">
                         <div style="margin-bottom:1.2rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.8rem;">
                             <h3 style="border:none; margin:0; padding:0; display:flex; align-items:center; gap:8px;"><i class="ph ph-users-three"></i> Marco de Efetivo (Capacidade)</h3>
@@ -124,7 +124,6 @@
                             </div>
                         </div>
                     </div>
-
                 </section>
 
                 <section id="tab-indicadores" class="view-section">
@@ -147,6 +146,25 @@
                     <div class="dash-section-title">Consolidado por Setor (Total)</div><div id="grid-consolidado" class="compact-grid"></div>
                     <div class="card chart-box" style="margin-top: 1.5rem;"><canvas id="chart-evolution"></canvas></div>
                 </section>
+
+                <section id="tab-basedados" class="view-section">
+                    <div class="card">
+                        <div style="margin-bottom:1.2rem; border-bottom:1px solid #e2e8f0; padding-bottom:0.8rem;">
+                            <h3 style="border:none; margin:0; padding:0; display:flex; align-items:center; gap:8px;"><i class="ph ph-database"></i> Base de Dados (App 1)</h3>
+                            <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 8px;">Espelho de leitura (Somente Leitura) dos lançamentos brutos de faltas realizados pelos analistas da produção.</p>
+                        </div>
+                        
+                        <div class="input-group" style="max-width: 350px; margin-bottom: 1.5rem;">
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <i class="ph-bold ph-magnifying-glass" style="position: absolute; left: 10px; color: var(--text-light);"></i>
+                                <input type="text" id="input-busca-bd" placeholder="Buscar mês ou ano... (Ex: mar de 2026)" onkeyup="app.filtrarBaseDados()" style="padding-left: 35px;">
+                            </div>
+                        </div>
+                        
+                        <div id="accordion-container-bd"></div>
+                    </div>
+                </section>
+
             </main>
         </div>
     </div>
