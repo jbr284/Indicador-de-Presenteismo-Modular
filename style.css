@@ -89,7 +89,7 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white; }
 
 /* ========================================================= */
-/* --- 7. TABELAS (APP 2) --- */
+/* --- 7. TABELAS --- */
 /* ========================================================= */
 .table-container { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -100,13 +100,28 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 .turn-header { background: #f1f5f9; color: var(--text-main); font-weight: 700; font-size: 0.8rem; text-transform: uppercase; }
 
 /* ========================================================= */
-/* --- 8. BASE DE DADOS (CLONAGEM DO VISUAL APP 1) --- */
+/* --- 8. BASE DE DADOS (CLONAGEM DO VISUAL APP 1 COM GRID RESPONSIVO) --- */
 /* ========================================================= */
 .hist-card { border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 1.2rem; background: #ffffff; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 .hist-card-header { background: #eff6ff; color: #1d4ed8; padding: 0.8rem 1rem; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #bfdbfe; }
 .hist-turno-title { font-size: 0.8rem; font-weight: 700; color: #64748b; margin: 1rem 1rem 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
-.hist-dias-grid { display: flex; gap: 10px; padding: 0 1rem 1rem; overflow-x: auto; }
-.hist-dia-box { border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.6rem; text-align: center; flex: 1; min-width: 60px; background: #ffffff; }
+
+/* GRID MÁGICO PARA RESOLVER O PROBLEMA DO MOBILE */
+.hist-dias-grid { 
+    display: grid; 
+    grid-template-columns: repeat(6, 1fr); 
+    gap: 8px; 
+    padding: 0 1rem 1rem; 
+    width: 100%; 
+}
+.hist-dia-box { 
+    border: 1px solid #e2e8f0; 
+    border-radius: 6px; 
+    padding: 0.5rem 0.2rem; 
+    text-align: center; 
+    background: #ffffff; 
+}
+
 .hist-dia-label { font-size: 0.7rem; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; }
 .hist-dia-val { font-size: 1.1rem; font-weight: 700; color: #334155; }
 .hist-tot-box { background: #eff6ff; border-color: #bfdbfe; }
@@ -114,8 +129,20 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 
 .hist-geral { background: #2563eb; color: white; border-radius: 8px; padding: 1.2rem; margin-top: 1.5rem; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 6px -1px rgba(37,99,235,0.2); }
 .hist-geral-title { text-align: center; font-weight: 700; font-size: 0.85rem; text-transform: uppercase; margin-bottom: 0.5rem; letter-spacing: 0.5px; }
-.hist-geral-grid { display: flex; gap: 10px; width: 100%; overflow-x: auto; }
-.hist-geral-box { flex: 1; text-align: center; padding: 0.5rem; border-radius: 6px; min-width: 60px; }
+
+/* GRID MÁGICO PARA O TOTAL GERAL */
+.hist-geral-grid { 
+    display: grid; 
+    grid-template-columns: repeat(6, 1fr); 
+    gap: 8px; 
+    width: 100%; 
+}
+.hist-geral-box { 
+    text-align: center; 
+    padding: 0.5rem 0.2rem; 
+    border-radius: 6px; 
+}
+
 .hist-geral-box.tot { background: rgba(255,255,255,0.2); }
 .hist-geral-label { font-size: 0.7rem; font-weight: 700; color: #bfdbfe; margin-bottom: 4px; text-transform: uppercase; }
 .hist-geral-val { font-size: 1.2rem; font-weight: 700; }
@@ -153,7 +180,7 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
 }
 
 /* ========================================================= */
-/* --- 11. RESPONSIVIDADE MOBILE --- */
+/* --- 11. RESPONSIVIDADE MOBILE AVANÇADA --- */
 /* ========================================================= */
 @media (max-width: 768px) { 
     #app-container { flex-direction: column; } 
@@ -162,4 +189,13 @@ td { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); color: var(--
     nav { display: flex; gap: 0.5rem; } nav button span { display: none; } nav button { width: auto; padding: 0.5rem; margin: 0; } 
     .user-profile { display: none; } 
     header { padding: 0 1rem; } main { padding: 1rem; } 
+}
+
+@media (max-width: 480px) {
+    /* Exprime ainda mais os espaços para caber em telemóveis finos */
+    .hist-dias-grid { padding: 0 0.5rem 1rem; gap: 4px; }
+    .hist-geral-grid { gap: 4px; }
+    .hist-dia-label, .hist-geral-label { font-size: 0.65rem; }
+    .hist-dia-val, .hist-geral-val { font-size: 1rem; }
+    .hist-turno-title { margin: 1rem 0.5rem 0.5rem; font-size: 0.75rem; }
 }
