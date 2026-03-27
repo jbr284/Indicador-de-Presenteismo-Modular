@@ -356,6 +356,7 @@ window.app = {
                 });
             };
 
+            // ABA: PLANTA 3
             const wsP3 = workbook.addWorksheet('Planta 3');
             wsP3.columns = [
                 { key: 'data', width: 16 },
@@ -399,6 +400,7 @@ window.app = {
             addConditionalFormatting(wsP3, `D4:D${lastRowP3}`); addConditionalFormatting(wsP3, `G4:G${lastRowP3}`);
             addConditionalFormatting(wsP3, `J4:J${lastRowP3}`); addConditionalFormatting(wsP3, `M4:M${lastRowP3}`);
 
+            // ABA: PLANTA 4
             const wsP4 = workbook.addWorksheet('Planta 4');
             wsP4.columns = [
                 { key: 'data', width: 16 },
@@ -564,7 +566,6 @@ window.app = {
                 textoResumoCompleto += `\n\n<b>■ 2º TURNO:</b>\n${resT2}`;
             }
 
-            // O SEGREDINHO DA SANFONA ESTÁ NESTE 'ONCLICK'
             const resumoHtml = `
             <div class="hist-resumo">
                 <div class="hist-resumo-hdr" onclick="
